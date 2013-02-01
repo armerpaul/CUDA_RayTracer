@@ -33,6 +33,19 @@ __device__ double dot(Point p1, Point p2);
 __device__ Point subtractPoints(Point p1, Point p2);
 __device__ Point normalize(Point p);
 
+/* 
+ *  Handles CUDA errors, taking from provided sample code on clupo site
+ */
+
+static void HandleError( cudaError_t err, const char * file, int line)
+{
+    if(err !=cudaSuccess){
+        printf("%s in %s at line %d\n", cudaGetErrorString(err), file, line);
+            exit(EXIT_FAILURE);
+    }
+}
+#define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
+
 int main(void) 
 {
    // set up for random num generator
@@ -57,20 +70,20 @@ int main(void)
    // (spheres)
    Sphere* spheres = CreateSpheres();
 
-   cudaMemcpyToSymbol(f, floor, sizeof(Plane));
-   cudaMemcpyToSymbol(l, light, sizeof(PointLight));
-   cudaMemcpyToSymbol(cam, camera, sizeof(Camera));
-   cudaMemcpyToSymbol(s, spheres, sizeof(Sphere)*NUM_SPHERES);
+   HANDLE_ERROR( cudaMemcpyToSymbol(f, floor, sizeof(Plane)) );
+   HANDLE_ERROR( cudaMemcpyToSymbol(l, light, sizeof(PointLight)) );
+   HANDLE_ERROR( cudaMemcpyToSymbol(cam, camera, sizeof(Camera)) );
+   HANDLE_ERROR( cudaMemcpyToSymbol(s, spheres, sizeof(Sphere)*NUM_SPHERES) );
 
    color_t * pixel_deviceD;
-   cudaMalloc(&pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT);
+   HANDLE_ERROR( cudaMalloc(&pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT) );
 
    //MEMCPY'S
    // The Kernel Call
    CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 1023) / 1024, 1024 >>>(pixel_deviceD);
    
    // Coming Back
-   cudaMemcpy(pixel_device, pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT, cudaMemcpyDeviceToHost);
+   HANDLE_ERROR( cudaMemcpy(pixel_device, pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT, cudaMemcpyDeviceToHost) );
    fflush(stdout);
    
    for (int i=0; i < WINDOW_WIDTH; i++) {
@@ -85,6 +98,7 @@ int main(void)
   	// write the targa file to disk
   	img.WriteTga((char *)"raytraced.tga", true); 
   	// true to scale to max color, false to clamp to 1.0
+   cudaFree(pixel_deviceD);
 } 
 
 
