@@ -21,8 +21,8 @@ __constant__ Camera *cam;
 Camera* CameraInit();
 PointLight* LightInit();
 Sphere* CreateSpheres();
-Point* CreatePoint(double x, double y, double z);
-color_t* CreateColor(double r, double g, double b);
+Point CreatePoint(double x, double y, double z);
+color_t CreateColor(double r, double g, double b);
 
 __global__ void CUDARayTrace(color_t * pixelList);
 
@@ -39,8 +39,8 @@ int main(void)
    srand ( time(NULL) );
    
    Image img(WINDOW_WIDTH, WINDOW_HEIGHT);
-   Camera camera = CameraInit();
-   PointLight light = LightInit();
+   Camera* camera = CameraInit();
+   PointLight* light = LightInit();
    
    color_t * pixel_device = NULL;
    double aspectRatio = WINDOW_WIDTH; 
@@ -86,31 +86,33 @@ int main(void)
   	img.WriteTga((char *)"raytraced.tga", true); 
   	// true to scale to max color, false to clamp to 1.0
 } 
+
+
 Camera* CameraInit() {
    
-   Camera* temp = new Camera();
-   temp->eye = CreatePoint(0, 0, 0);
-   temp->lookAt = CreatePoint(0, 0, SCREEN_DISTANCE);
-   temp->lookUp = CreatePoint(0, 1, 0);
-
-   temp->u = CreatePoint(1, 0, 0);
-   temp->v = CreatePoint(0, 1, 0);
-   temp->w = CreatePoint(0, 0, 1);
+   Camera* c = new Camera();
    
-   return temp;
+   c->eye = CreatePoint(0, 0, 0);
+   c->lookAt = CreatePoint(0, 0, SCREEN_DISTANCE);
+   c->lookUp = CreatePoint(0, 1, 0);
+
+   c->u = CreatePoint(1, 0, 0);
+   c->v = CreatePoint(0, 1, 0);
+   c->w = CreatePoint(0, 0, 1);
+   
+   return c;
 }
 
 PointLight* LightInit() {
-   PointLight* temp = new PointLight();
+   PointLight* l = new PointLight();
 
-   temp->ambient = CreateColor(0.2, 0.2, 0.2);
-   temp->diffuse = CreateColor(0.6, 0.6, 0.6);
-   temp->specular = CreateColor(0.9, 0.9, 0.9);
+   l->ambient = CreateColor(0.2, 0.2, 0.2);
+   l->diffuse = CreateColor(0.6, 0.6, 0.6);
+   l->specular = CreateColor(0.9, 0.9, 0.9);
 
-   //temp->position = CreatePoint(0, 200, 0);
-   temp->position = CreatePoint(-1 * WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, -1 * WINDOW_WIDTH / 2);
+   l->position = CreatePoint(-1 * WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, -1 * WINDOW_WIDTH / 2);
 
-   return temp;
+   return l;
 }
 
 __host__  __device__ Point CreatePoint(double x, double y, double z) {
@@ -164,7 +166,7 @@ __global__ void CUDARayTrace(color_t * pixelList)
     Ray * r = new Ray();
    
     //INIT RAY VALUES
-	  r->origin = cam->eye;
+	r->origin = cam->eye;
     r->direction = cam->lookAt;
     r->direction->x = -1 * aspectRatio * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
     r->direction->y = tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
