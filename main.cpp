@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <glm/glm.hpp>
+//#include <glm/glm.hpp>
 #include <math.h>
 #include "Image.h"
 #include "types.h"
@@ -16,8 +16,8 @@
 Camera* CameraInit();
 PointLight* LightInit();
 Sphere* CreateSpheres();
-Point* CreatePoint(double x, double y, double z);
-color_t* CreateColor(double r, double g, double b);
+Point CreatePoint(double x, double y, double z);
+color_t CreateColor(double r, double g, double b);
 color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l);
 color_t SphereShading(int sNdx, Ray* r, Point* p, Sphere* sphereList, PointLight* l);
 double SphereRayIntersection(Sphere* s, Ray* r);
@@ -51,10 +51,10 @@ int main(void)
    
 	r->origin = cam->eye;
    r->direction = cam->lookAt;
-   r->direction->x = -1 * aspectRatio * tan(FOV / 2);
+   r->direction.x = -1 * aspectRatio * tan(FOV / 2);
 
    for (int i=0; i < WINDOW_WIDTH; i++) {
-   	r->direction->y = tan(FOV / 2);
+   	r->direction.y = tan(FOV / 2);
 		for (int j=0; j < WINDOW_HEIGHT; j++) {
          //Looping over the Rays
      		img.pixel(i, j, RayTrace(r, spheres, floor, light));
@@ -62,9 +62,9 @@ int main(void)
       	//printf("o: (%lf, %lf, %lf)   ", r.origin.x, r.origin.y, r.origin.z);
          //printf("d: (%lf, %lf, %lf)\n", r.direction.x, r.direction.y, r.direction.z);
       		
-      	r->direction->y -= 2 * tan(FOV / 2) / WINDOW_HEIGHT;
+      	r->direction.y -= 2 * tan(FOV / 2) / WINDOW_HEIGHT;
 		}
-		r->direction->x += 2 * tan(FOV / 2) / WINDOW_HEIGHT;
+		r->direction.x += 2 * tan(FOV / 2) / WINDOW_HEIGHT;
   	}
   	
 	// IMAGE OUTPUT
@@ -101,23 +101,23 @@ PointLight* LightInit() {
    return temp;
 }
 
-Point* CreatePoint(double x, double y, double z) {
-   Point* p = new Point();
+Point CreatePoint(double x, double y, double z) {
+   Point p;
    
-   p->x = x;
-   p->y = y;
-   p->z = z;
+   p.x = x;
+   p.y = y;
+   p.z = z;
    
    return p;
 }
 
-color_t* CreateColor(double r, double g, double b) {
-   color_t* c = new color_t();
+color_t CreateColor(double r, double g, double b) {
+   color_t c;
 
-   c->r = r;
-   c->g = g;
-   c->b = b;
-   c->f = 1.0;
+   c.r = r;
+   c.g = g;
+   c.b = b;
+   c.f = 1.0;
 
    return c;
 }
@@ -144,9 +144,9 @@ Sphere* CreateSpheres() {
 
 
 color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l) {
-   	color_t* black = CreateColor(0, 0, 0);
+   	color_t black = CreateColor(0, 0, 0);
    	double t, smallest;
-   	Point* p;
+   	Point p;
    	int i = 0, closestSphere = -1;
 
    	while (i < NUM_SPHERES) {
@@ -160,21 +160,20 @@ color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l) {
    }
 
    if (closestSphere > -1) {
-
    		//fprintf(stderr, "r = %lf, g = %lf, b = %lf\n", s[closestSphere].color.r, s[closestSphere].color.g, s[closestSphere].color.b);
-      	p = CreatePoint(r->direction->x * smallest, r->direction->y * smallest, r->direction->z * smallest);
+      	p = CreatePoint(r->direction.x * smallest, r->direction.y * smallest, r->direction.z * smallest);
       	return SphereShading(closestSphere, r, p, s, l);
    }
    
-   return *black;
+   return black;
 }
 
 double SphereRayIntersection(Sphere* s, Ray* r) {
 	double a, b, c, d, t1, t2;
     
-    a = dot(*(r->direction), *(r->direction));
-    b = dot(subtractPoints(*(r->origin), *(s->center)), *(r->direction));
-    c = dot(subtractPoints(*(r->origin), *(s->center)), subtractPoints(*(r->origin), *(s->center)))
+    a = dot((r->direction), (r->direction));
+    b = dot(subtractPoints((r->origin), (s->center)),(r->direction));
+    c = dot(subtractPoints((r->origin), (s->center)), subtractPoints((r->origin), (s->center)))
             - (s->radius * s->radius);
     d = (b * b) - (a * c);
     
@@ -196,7 +195,7 @@ double SphereRayIntersection(Sphere* s, Ray* r) {
 	return d;
 }
 
-color_t SphereShading(int sNdx, Ray* r, Point* p, Sphere* sphereList, PointLight* l) {
+color_t SphereShading(int sNdx, Ray* r, Point p, Sphere* sphereList, PointLight* l) {
 	color_t a, d, s, total;
 	double reflectTemp, NdotL, RdotV;
 	Point viewVector, lightVector, reflectVector, normalVector;
@@ -205,9 +204,9 @@ color_t SphereShading(int sNdx, Ray* r, Point* p, Sphere* sphereList, PointLight
    //printf("r->%lf g->%lf b->%lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
    //printf("r->%lf g->%lf b->%lf\n\n", l->specular->r, l->specular->g, l->specular->b);
 
-	viewVector = normalize(subtractPoints(*(r->origin), *p));
-	lightVector = normalize(subtractPoints(*p, *(l->position)));
-	normalVector = normalize(subtractPoints(*p, *(sphereList[sNdx].center)));
+	viewVector = normalize(subtractPoints((r->origin), p));
+	lightVector = normalize(subtractPoints(p, (l->position)));
+	normalVector = normalize(subtractPoints(p, (sphereList[sNdx].center)));
 	reflectVector = subtractPoints(normalVector, lightVector);
 
    NdotL = dot(lightVector, normalVector);
@@ -217,9 +216,9 @@ color_t SphereShading(int sNdx, Ray* r, Point* p, Sphere* sphereList, PointLight
 	reflectVector.y *= reflectTemp;
 	reflectVector.z *= reflectTemp;
 	
-	a.r = l->ambient->r * sphereList[sNdx].ambient->r;
-	a.g = l->ambient->g * sphereList[sNdx].ambient->g;
-	a.b = l->ambient->b * sphereList[sNdx].ambient->b;
+	a.r = l->ambient.r * sphereList[sNdx].ambient.r;
+	a.g = l->ambient.g * sphereList[sNdx].ambient.g;
+	a.b = l->ambient.b * sphereList[sNdx].ambient.b;
 
    if (NdotL > 0. ) {
 
@@ -228,15 +227,15 @@ color_t SphereShading(int sNdx, Ray* r, Point* p, Sphere* sphereList, PointLight
       //printf("%lf %lf %lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
 
       // Diffuse
-      d.r = NdotL * l->diffuse->r * sphereList[sNdx].diffuse->r;
-      d.g = NdotL * l->diffuse->g * sphereList[sNdx].diffuse->g;
-      d.b = NdotL * l->diffuse->b * sphereList[sNdx].diffuse->b;
+      d.r = NdotL * l->diffuse.r * sphereList[sNdx].diffuse.r;
+      d.g = NdotL * l->diffuse.g * sphereList[sNdx].diffuse.g;
+      d.b = NdotL * l->diffuse.b * sphereList[sNdx].diffuse.b;
 
       // Specular
       RdotV = pow(dot(reflectVector, viewVector), 2.0);
-      s.r = RdotV * l->specular->r * sphereList[sNdx].specular->r;
-      s.g = RdotV * l->specular->g * sphereList[sNdx].specular->g;
-      s.b = RdotV * l->specular->b * sphereList[sNdx].specular->b;
+      s.r = RdotV * l->specular.r * sphereList[sNdx].specular.r;
+      s.g = RdotV * l->specular.g * sphereList[sNdx].specular.g;
+      s.b = RdotV * l->specular.b * sphereList[sNdx].specular.b;
 
       //printf("%lf %lf %lf\n\n", d.r, d.g, d.b);
 	} else {
