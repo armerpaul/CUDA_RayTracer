@@ -21,13 +21,13 @@ __constant__ Camera *cam;
 Camera* CameraInit();
 PointLight* LightInit();
 Sphere* CreateSpheres();
-Point CreatePoint(double x, double y, double z);
-color_t CreateColor(double r, double g, double b);
+__host__ __device__ Point CreatePoint(double x, double y, double z);
+__host__ __device__ color_t CreateColor(double r, double g, double b);
 
 __global__ void CUDARayTrace(color_t * pixelList);
 
 __device__ color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l);
-__device__ color_t SphereShading(int sNdx, Ray* r, Point* p, Sphere* sphereList, PointLight* l);
+__device__ color_t SphereShading(int sNdx, Ray* r, Point p, Sphere* sphereList, PointLight* l);
 __device__ double SphereRayIntersection(Sphere* s, Ray* r);
 __device__ double dot(Point p1, Point p2);
 __device__ Point subtractPoints(Point p1, Point p2);
@@ -183,9 +183,9 @@ __global__ void CUDARayTrace(color_t * pixelList)
 }
 
 __device__ color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l) {
-    color_t* black = CreateColor(0, 0, 0); 
+    color_t black = CreateColor(0, 0, 0); 
     double t, smallest;
-   	Point* p;
+   	Point p;
    	int i = 0, closestSphere = -1;
 
     
@@ -206,15 +206,15 @@ __device__ color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l) {
       	return SphereShading(closestSphere, r, p, s, l);
    }
    
-   return *black;
+   return black;
 }
 
 __device__ double SphereRayIntersection(Sphere* s, Ray* r) {
 	double a, b, c, d, t1, t2;
     
-    a = dot(*(r->direction), *(r->direction));
-    b = dot(subtractPoints(*(r->origin), *(s->center)), *(r->direction));
-    c = dot(subtractPoints(*(r->origin), *(s->center)), subtractPoints(*(r->origin), *(s->center)))
+    a = dot((r->direction), (r->direction));
+    b = dot(subtractPoints((r->origin), (s->center)),(r->direction));
+    c = dot(subtractPoints((r->origin), (s->center)), subtractPoints((r->origin), (s->center)))
             - (s->radius * s->radius);
     d = (b * b) - (a * c);
     
@@ -236,7 +236,7 @@ __device__ double SphereRayIntersection(Sphere* s, Ray* r) {
 	return d;
 }
 
-__device__ color_t SphereShading(int sNdx, Ray* r, Point* p, Sphere* sphereList, PointLight* l) {
+__device__ color_t SphereShading(int sNdx, Ray* r, Point p, Sphere* sphereList, PointLight* l) {
 	color_t a, d, s, total;
 	double reflectTemp, NdotL, RdotV;
 	Point viewVector, lightVector, reflectVector, normalVector;
@@ -245,9 +245,9 @@ __device__ color_t SphereShading(int sNdx, Ray* r, Point* p, Sphere* sphereList,
    //printf("r->%lf g->%lf b->%lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
    //printf("r->%lf g->%lf b->%lf\n\n", l->specular->r, l->specular->g, l->specular->b);
 
-	viewVector = normalize(subtractPoints(*(r->origin), *p));
-	lightVector = normalize(subtractPoints(*p, *(l->position)));
-	normalVector = normalize(subtractPoints(*p, *(sphereList[sNdx].center)));
+	viewVector = normalize(subtractPoints((r->origin), p));
+	lightVector = normalize(subtractPoints(p, (l->position)));
+	normalVector = normalize(subtractPoints(p, (sphereList[sNdx].center)));
 	reflectVector = subtractPoints(normalVector, lightVector);
 
    NdotL = dot(lightVector, normalVector);
