@@ -1,4 +1,6 @@
-CPP = g++
+﻿CPP = g++
+NVCC = nvcc
+NVFLAGS = -v -O2
 
-all: Image.cpp main.cpp
-	g++ Image.cpp main.cpp
+all: Image.cpp main.cu
+        $(NVCC) $(NVGLAGS) Image.cpp main.cu
