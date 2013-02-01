@@ -43,7 +43,7 @@ int main(void)
 	 color_t * pixel_device = NULL;
    double aspectRatio = WINDOW_WIDTH; 
 	 aspectRatio /= WINDOW_HEIGHT;
-  
+ pixel_device = new color_t[WINDOW_WIDTH * WINDOW_HEIGHT];
   	//SCENE SET UP
   	// (floor)
    Plane* floor = new Plane();
@@ -57,11 +57,14 @@ int main(void)
    cudaMemcpyToSymbol(l, light, sizeof(PointLight));
    cudaMemcpyToSymbol(cam, camera, sizeof(Camera));
    cudaMemcpyToSymbol(s, spheres, sizeof(Sphere)*NUM_SPHERES);
-   
-   cudaMemcpy(pixel_device, new color_t[WINDOW_WIDTH * WINDOW_HEIGHT], WINDOW_WIDTH * WINDOW_HEIGHT, cudaMemcpyHostToDevice);
+   color_t * pixel_deviceD;
+cudaMalloc(&pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT);
+
    //MEMCPY'S
    
-   CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 1023) / 1024, 1024 >>>(pixel_device);
+   CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 1023) / 1024, 1024 >>>(pixel_deviceD);
+   cudaMemcpy(pixel_device, pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT, cudaMemcpyDeviceToHost);
+    fflush(stdout);
    
    for (int i=0; i < WINDOW_WIDTH; i++) {
 		for (int j=0; j < WINDOW_HEIGHT; j++) {
@@ -162,6 +165,7 @@ __global__ void CUDARayTrace(color_t * pixelList)
     returnColor = RayTrace(r, s, f, l);
 
     int index = row *WINDOW_WIDTH + col;
+    printf("%d %f\n",index,pixelList[index].r);
     pixelList[index].r = returnColor.r;
     pixelList[index].g = returnColor.g;
     pixelList[index].b = returnColor.b;
