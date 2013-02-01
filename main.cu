@@ -183,9 +183,9 @@ __global__ void CUDARayTrace(color_t * pixelList)
 }
 
 __device__ color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l) {
-    color_t* black = CreateColor(0, 0, 0); 
+    color_t black = CreateColor(0, 0, 0); 
     double t, smallest;
-   	Point* p;
+   	Point p;
    	int i = 0, closestSphere = -1;
 
     
