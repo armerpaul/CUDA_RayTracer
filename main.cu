@@ -103,7 +103,7 @@ PointLight* LightInit() {
    return temp;
 }
 
-Point* CreatePoint(double x, double y, double z) {
+__host__  __device__ Point* CreatePoint(double x, double y, double z) {
    Point* p = new Point();
    
    p->x = x;
@@ -113,7 +113,7 @@ Point* CreatePoint(double x, double y, double z) {
    return p;
 }
 
-color_t* CreateColor(double r, double g, double b) {
+__host__ __device__ color_t* CreateColor(double r, double g, double b) {
    color_t* c = new color_t();
 
    c->r = r;
