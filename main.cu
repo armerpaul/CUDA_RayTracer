@@ -168,8 +168,8 @@ __global__ void CUDARayTrace(color_t * pixelList)
     //INIT RAY VALUES
 	r->origin = cam->eye;
     r->direction = cam->lookAt;
-    r->direction->x = -1 * aspectRatio * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
-    r->direction->y = tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
+    r->direction.x = -1 * aspectRatio * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
+    r->direction.y = tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
     
     returnColor = RayTrace(r, s, f, l);
 
@@ -202,7 +202,7 @@ __device__ color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l) {
    if (closestSphere > -1) {
 
    		//fprintf(stderr, "r = %lf, g = %lf, b = %lf\n", s[closestSphere].color.r, s[closestSphere].color.g, s[closestSphere].color.b);
-      	p = CreatePoint(r->direction->x * smallest, r->direction->y * smallest, r->direction->z * smallest);
+      	p = CreatePoint(r->direction.x * smallest, r->direction.y * smallest, r->direction.z * smallest);
       	return SphereShading(closestSphere, r, p, s, l);
    }
    
@@ -257,9 +257,9 @@ __device__ color_t SphereShading(int sNdx, Ray* r, Point* p, Sphere* sphereList,
 	reflectVector.y *= reflectTemp;
 	reflectVector.z *= reflectTemp;
 	
-	a.r = l->ambient->r * sphereList[sNdx].ambient->r;
-	a.g = l->ambient->g * sphereList[sNdx].ambient->g;
-	a.b = l->ambient->b * sphereList[sNdx].ambient->b;
+	a.r = l->ambient.r * sphereList[sNdx].ambient.r;
+	a.g = l->ambient.g * sphereList[sNdx].ambient.g;
+	a.b = l->ambient.b * sphereList[sNdx].ambient.b;
 
    if (NdotL > 0. ) {
 
@@ -268,15 +268,15 @@ __device__ color_t SphereShading(int sNdx, Ray* r, Point* p, Sphere* sphereList,
       //printf("%lf %lf %lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
 
       // Diffuse
-      d.r = NdotL * l->diffuse->r * sphereList[sNdx].diffuse->r;
-      d.g = NdotL * l->diffuse->g * sphereList[sNdx].diffuse->g;
-      d.b = NdotL * l->diffuse->b * sphereList[sNdx].diffuse->b;
+      d.r = NdotL * l->diffuse.r * sphereList[sNdx].diffuse.r;
+      d.g = NdotL * l->diffuse.g * sphereList[sNdx].diffuse.g;
+      d.b = NdotL * l->diffuse.b * sphereList[sNdx].diffuse.b;
 
       // Specular
       RdotV = pow(dot(reflectVector, viewVector), 2.0);
-      s.r = RdotV * l->specular->r * sphereList[sNdx].specular->r;
-      s.g = RdotV * l->specular->g * sphereList[sNdx].specular->g;
-      s.b = RdotV * l->specular->b * sphereList[sNdx].specular->b;
+      s.r = RdotV * l->specular.r * sphereList[sNdx].specular.r;
+      s.g = RdotV * l->specular.g * sphereList[sNdx].specular.g;
+      s.b = RdotV * l->specular.b * sphereList[sNdx].specular.b;
 
       //printf("%lf %lf %lf\n\n", d.r, d.g, d.b);
 	} else {
