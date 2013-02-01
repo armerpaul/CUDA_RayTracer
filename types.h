@@ -14,28 +14,28 @@ typedef struct {
 } Point;
 
 typedef struct {
-   Point* center;
+   Point center;
    double radius;
-   color_t *ambient, *diffuse, *specular;
+   color_t ambient, diffuse, specular;
 } Sphere;
 
 typedef struct {
-   Point *center, *normal;
-   color_t *ambient, *diffuse, *specular;
+   Point center, normal;
+   color_t ambient, diffuse, specular;
 } Plane;
 
 typedef struct {
-   Point *eye, *lookAt, *lookUp;
-   Point *u, *v, *w;
+   Point eye, lookAt, lookUp;
+   Point u, v, w;
 } Camera;
 
 typedef struct {
-   Point *position;
-   color_t *ambient, *diffuse, *specular;
+   Point position;
+   color_t ambient, diffuse, specular;
 } PointLight;
 
 typedef struct {
-   Point *origin, *direction;
+   Point origin, direction;
 } Ray;
 
 #endif

@@ -37,13 +37,17 @@ int main(void)
 {
    // set up for random num generator
    srand ( time(NULL) );
+   
    Image img(WINDOW_WIDTH, WINDOW_HEIGHT);
-   Camera* camera = CameraInit();
-   PointLight* light = LightInit();
-	 color_t * pixel_device = NULL;
+   Camera camera = CameraInit();
+   PointLight light = LightInit();
+   
+   color_t * pixel_device = NULL;
    double aspectRatio = WINDOW_WIDTH; 
-	 aspectRatio /= WINDOW_HEIGHT;
- pixel_device = new color_t[WINDOW_WIDTH * WINDOW_HEIGHT];
+   aspectRatio /= WINDOW_HEIGHT;
+   
+   pixel_device = new color_t[WINDOW_WIDTH * WINDOW_HEIGHT];
+  	
   	//SCENE SET UP
   	// (floor)
    Plane* floor = new Plane();
@@ -57,14 +61,17 @@ int main(void)
    cudaMemcpyToSymbol(l, light, sizeof(PointLight));
    cudaMemcpyToSymbol(cam, camera, sizeof(Camera));
    cudaMemcpyToSymbol(s, spheres, sizeof(Sphere)*NUM_SPHERES);
+
    color_t * pixel_deviceD;
-cudaMalloc(&pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT);
+   cudaMalloc(&pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT);
 
    //MEMCPY'S
-   
+   // The Kernel Call
    CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 1023) / 1024, 1024 >>>(pixel_deviceD);
+   
+   // Coming Back
    cudaMemcpy(pixel_device, pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT, cudaMemcpyDeviceToHost);
-    fflush(stdout);
+   fflush(stdout);
    
    for (int i=0; i < WINDOW_WIDTH; i++) {
 		for (int j=0; j < WINDOW_HEIGHT; j++) {
@@ -76,7 +83,7 @@ cudaMalloc(&pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT);
 	// IMAGE OUTPUT
 	//
   	// write the targa file to disk
-  	img.WriteTga((char *)"vanilla.tga", true); 
+  	img.WriteTga((char *)"raytraced.tga", true); 
   	// true to scale to max color, false to clamp to 1.0
 } 
 Camera* CameraInit() {
@@ -106,23 +113,23 @@ PointLight* LightInit() {
    return temp;
 }
 
-__host__  __device__ Point* CreatePoint(double x, double y, double z) {
-   Point* p = new Point();
+__host__  __device__ Point CreatePoint(double x, double y, double z) {
+   Point p;
    
-   p->x = x;
-   p->y = y;
-   p->z = z;
-   
+   p.x = x;
+   p.y = y;
+   p.z = z;
+
    return p;
 }
 
-__host__ __device__ color_t* CreateColor(double r, double g, double b) {
-   color_t* c = new color_t();
+__host__ __device__ color_t CreateColor(double r, double g, double b) {
+   color_t c;
 
-   c->r = r;
-   c->g = g;
-   c->b = b;
-   c->f = 1.0;
+   c.r = r;
+   c.g = g;
+   c.b = b;
+   c.f = 1.0;
 
    return c;
 }
@@ -172,6 +179,7 @@ __global__ void CUDARayTrace(color_t * pixelList)
     pixelList[index].f = returnColor.f;
  
 }
+
 __device__ color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l) {
     color_t* black = CreateColor(0, 0, 0); 
     double t, smallest;
