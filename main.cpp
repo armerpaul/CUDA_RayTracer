@@ -19,7 +19,7 @@ Sphere* CreateSpheres();
 Point CreatePoint(double x, double y, double z);
 color_t CreateColor(double r, double g, double b);
 color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l);
-color_t SphereShading(int sNdx, Ray* r, Point* p, Sphere* sphereList, PointLight* l);
+color_t SphereShading(int sNdx, Ray* r, Point p, Sphere* sphereList, PointLight* l);
 double SphereRayIntersection(Sphere* s, Ray* r);
 double dot(Point p1, Point p2);
 Point subtractPoints(Point p1, Point p2);
