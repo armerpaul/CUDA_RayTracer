@@ -28,7 +28,8 @@ Point normalize(Point p);
 int main(void) 
 {
    // set up for random num generator
-  	srand ( time(NULL) );
+  	//srand ( time(NULL) );
+    srand ( 0);
 
    Image img(WINDOW_WIDTH, WINDOW_HEIGHT);
    Camera* cam = CameraInit();

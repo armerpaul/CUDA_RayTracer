@@ -90,8 +90,8 @@ int main(void)
    
    // The Kernel Call
 
-   //CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 1023) / 1024, 1024 >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
-   CUDARayTrace<<< 1, 1 >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
+   CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 559) / 560 +2, 560 >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
+   //CUDARayTrace<<< 100, 575 >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
 
    //CUDADummy<<<1, 1>>>(cam_d);//, f_d, l_d, s_d);
    // Coming Back
@@ -206,7 +206,7 @@ __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, 
     r.direction.x = -1 * aspectRatio * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
 
 
-//    returnColor = RayTrace(r, s, f, l);
+    returnColor = RayTrace(r, s, f, l);
     int index = row *WINDOW_WIDTH + col;
     
     //printf("%d %f\n",index,pixelList[index].r);
@@ -306,14 +306,11 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
   
    if (NdotL > 0 ) {
    //if(true){
-      //printf("%lf\n", NdotL);
-      //printf("%lf %lf %lf\n", sphereList[sNdx].diffuse->r, sphereList[sNdx].diffuse->g, sphereList[sNdx].diffuse->b);
-      //printf("%lf %lf %lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
 
       // Diffuse
-      d.r = .5; //NdotL * l->diffuse.r * sphereList[sNdx].diffuse.r;
-      d.g = .5; //NdotL * l->diffuse.g * sphereList[sNdx].diffuse.g;
-      d.b = .5; //NdotL * l->diffuse.b * sphereList[sNdx].diffuse.b;
+      d.r = NdotL * l->diffuse.r * sphereList[sNdx].diffuse.r;
+      d.g = NdotL * l->diffuse.g * sphereList[sNdx].diffuse.g;
+      d.b = NdotL * l->diffuse.b * sphereList[sNdx].diffuse.b;
       
       // Specular
       RdotV = dot(reflectVector, viewVector) * dot(reflectVector, viewVector);
@@ -321,7 +318,6 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
       s.g = RdotV * l->specular.g * sphereList[sNdx].specular.g;
       s.b = RdotV * l->specular.b * sphereList[sNdx].specular.b;
       
-      //printf("%lf %lf %lf\n\n", d.r, d.g, d.b);
 	} else {
       d.r = 0;
       d.g = 0;
@@ -332,17 +328,10 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
       s.b = 0;
    }
    
-	//total.r = a.r + d.r + s.r;
-	//total.g = a.g + d.g + s.g;
-	//total.b = a.b + d.b + s.b;
+	total.r = a.r + d.r + s.r;
+	total.g = a.g + d.g + s.g;
+	total.b = a.b + d.b + s.b;
 
-	//fprintf(stderr, "LIGHT A  r = %lf, g = %lf, b = %lf\n", l->ambient->r, l->ambient->g, l->ambient->b);
-	//fprintf(stderr, "LIGHT D  r = %lf, g = %lf, b = %lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
-	//fprintf(stderr, "LIGHT S  r = %lf, g = %lf, b = %lf\n", l->specular->r, l->specular->g, l->specular->b);
-
-	//fprintf(stderr, "SPHERE r = %lf, g = %lf, b = %lf\n", total.r, total.g, total.b);	
-	//fprintf(stderr, "PHONG  r = %lf, g = %lf, b = %lf\n\n", total.r, total.g, total.b);
-	
 	return total;
 }
 
