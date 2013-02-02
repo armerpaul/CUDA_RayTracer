@@ -7,6 +7,8 @@
 #include <time.h>
 //#include <glm/glm.hpp>
 #include <math.h>
+#include <cmath>
+#include <algorithm>
 #include "Image.h"
 #include "types.h"
 #include "VanExLib.h"
@@ -132,12 +134,12 @@ Sphere* CreateSpheres() {
             spheres[num].center = CreatePoint(j * 80. - 80. + rand() % 15,
                                               i * 80. - 200. + rand() % 15,
                                               -700. - k * 100 + rand() % 15);
-            spheres[num].ambient = CreateColor(minD((i + j) * .15, 1.),
-                                               minD((j + k) * .15, 1.),
-                                               maxD(1. - (k + i) * .15, 0.));
-            spheres[num].diffuse = CreateColor(minD((i + j) * .15, 1.),
-                                               minD((j + k) * .15, 1.),
-                                               maxD(1. - (k + i) * .15, 0.));
+            spheres[num].ambient = CreateColor(std::min((i + j) * .15, 1.),
+                                               std::min((j + k) * .15, 1.),
+                                               std::max(1. - (k + i) * .15, 0.));
+            spheres[num].diffuse = CreateColor(std::min((i + j) * .15, 1.),
+                                               std::min((j + k) * .15, 1.),
+                                               std::max(1. - (k + i) * .15, 0.));
             spheres[num].specular = CreateColor(1., 1., 1.);
             num++;
          }
