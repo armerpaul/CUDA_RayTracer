@@ -24,7 +24,7 @@ Sphere* CreateSpheres();
 __host__ __device__ Point CreatePoint(double x, double y, double z);
 __host__ __device__ color_t CreateColor(double r, double g, double b);
 
-__global__ void CUDARayTrace(color_t * pixelList);
+__global__ void CUDARayTrace(Camera * cam, Plane * f, PointLight *l, Sphere * s, color_t * pixelList);
 __global__ void CUDADummy(Camera * cam);//, Plane * f, PointLight *l, Sphere * s);
 
 __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l);
@@ -50,8 +50,8 @@ static void HandleError( cudaError_t err, const char * file, int line)
 int main(void) 
 {
    // set up for random num generator
-   srand ( time(NULL) );
-   
+   //srand ( time(NULL) );
+   srand ( 0 );
    Image img(WINDOW_WIDTH, WINDOW_HEIGHT);
    Camera* camera = CameraInit(), * cam_d;
    PointLight* light = LightInit(), *l_d ;
@@ -78,20 +78,22 @@ int main(void)
    HANDLE_ERROR( cudaMalloc(&pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT) );
 
    HANDLE_ERROR( cudaMalloc((void**)&cam_d, sizeof(Camera)) );
-  /* HANDLE_ERROR( cudaMalloc(&f_d, sizeof(Plane)) );
+   HANDLE_ERROR( cudaMalloc(&f_d, sizeof(Plane)) );
    HANDLE_ERROR( cudaMalloc(&l_d, sizeof(PointLight)) );
    HANDLE_ERROR( cudaMalloc(&s_d,  sizeof(Sphere)*NUM_SPHERES));
-  */ 
-   //HANDLE_ERROR( cudaMemcpy(l_d, light, sizeof(PointLight), cudaMemcpyHostToDevice) );
-   HANDLE_ERROR( cudaMemcpy(cam_d, camera,sizeof(Camera), cudaMemcpyHostToDevice) );
-  /* HANDLE_ERROR( cudaMemcpy(f_d, floor,sizeof(Plane), cudaMemcpyHostToDevice) );
-   HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
-  */ 
    
-   //MEMCPY'S
+   HANDLE_ERROR( cudaMemcpy(l_d, light, sizeof(PointLight), cudaMemcpyHostToDevice) );
+   HANDLE_ERROR( cudaMemcpy(cam_d, camera,sizeof(Camera), cudaMemcpyHostToDevice) );
+   HANDLE_ERROR( cudaMemcpy(f_d, floor,sizeof(Plane), cudaMemcpyHostToDevice) );
+   HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
+   
+   
    // The Kernel Call
+
    //CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 1023) / 1024, 1024 >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
-   CUDADummy<<<1, 1>>>(cam_d);//, f_d, l_d, s_d);
+   CUDARayTrace<<< 1, 1 >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
+
+   //CUDADummy<<<1, 1>>>(cam_d);//, f_d, l_d, s_d);
    // Coming Back
 
    HANDLE_ERROR( cudaMemcpy(pixel_device, pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT, cudaMemcpyDeviceToHost) );
@@ -182,9 +184,9 @@ Sphere* CreateSpheres() {
 }
 __global__ void CUDADummy(Camera * cam)//, Plane * f ,PointLight * l,Sphere * s)
 {
-  printf("C addr: %f\n", cam);//, F addr: %f, L addr: %f, Sphere addr: %s", cam, f, l, s); 
+  printf("C addr: %f\n", cam->lookAt.z);//, F addr: %f, L addr: %f, Sphere addr: %s", cam, f, l, s); 
 }
-__global__ void CUDARayTrace(color_t * pixelList)
+__global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, color_t * pixelList)
 {
     double tanVal = tan(FOV/2);
     double aspectRatio = WINDOW_WIDTH / WINDOW_HEIGHT;
@@ -198,8 +200,8 @@ __global__ void CUDARayTrace(color_t * pixelList)
       return;
 
     //INIT RAY VALUES
-//	  r.origin = cam->eye;
-//    r.direction = cam->lookAt;
+	  r.origin = cam->eye;
+    r.direction = cam->lookAt;
     r.direction.y = tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
     r.direction.x = -1 * aspectRatio * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
 
