@@ -1,8 +1,6 @@
 /*
-  CPE 471 Lab 1 
-  Base code for Rasterizer
-  Example code using B. Somers' image code - writes out a sample tga
-*/
+  CUDA Ray Tracer
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -125,21 +123,28 @@ color_t CreateColor(double r, double g, double b) {
 
 Sphere* CreateSpheres() {
 	Sphere* spheres = new Sphere[NUM_SPHERES]();
-   
-   	for (int i=0; i<NUM_SPHERES; i++) {
-	   	spheres[i].radius = rand() % 25 + 75;
-	   	spheres[i].center = CreatePoint(175 * i - 200, 
-	   									-1 * WINDOW_HEIGHT / 2 + 2 * spheres[i].radius,
-	   									pow(-15, i) - 500);
-	   	spheres[i].ambient = CreateColor(i * .3, .5 + i * .2, 1 - i * .3);
-	   	spheres[i].diffuse = CreateColor(i * .3, .5 + i * .2, 1 - i * .3);
-	   	spheres[i].specular = CreateColor(1., 1., 1.);
-	   	
-	   	//fprintf(stderr, "radius = %lf\n", spheres[i].radius);
-	   	//fprintf(stderr, "r = %lf, g = %lf, b = %lf\n", spheres[i].color.r, spheres[i].color.g, spheres[i].color.b);
-	   	//fprintf(stderr, "x = %lf, y = %lf, z = %lf\n\n", spheres[i].center.x, spheres[i].center.y, spheres[i].center.z);
-	}
-	
+   int i=0, j=0, k=0, num=0;
+
+   while (num < NUM_SPHERES) {
+      for (i=0; i < 6 && num < NUM_SPHERES; i++) {
+         for (j=0; j < 5 && num < NUM_SPHERES; j++) {
+            spheres[num].radius = 30. - rand() % 10;
+            spheres[num].center = CreatePoint(j * 80. - 80. + rand() % 15,
+                                              i * 80. - 200. + rand() % 15,
+                                              -700. - k * 100 + rand() % 15);
+            spheres[num].ambient = CreateColor(minD((i + j) * .15, 1.),
+                                               minD((j + k) * .15, 1.),
+                                               maxD(1. - (k + i) * .15, 0.));
+            spheres[num].diffuse = CreateColor(minD((i + j) * .15, 1.),
+                                               minD((j + k) * .15, 1.),
+                                               maxD(1. - (k + i) * .15, 0.));
+            spheres[num].specular = CreateColor(1., 1., 1.);
+            num++;
+         }
+      }
+      k++;
+   }
+
 	return spheres;
 }
 
