@@ -13,10 +13,10 @@
 #include "types.h"
 #include "VanExLib.h"
 
-__constant__ Sphere s[NUM_SPHERES];
+/*__constant__ Sphere s[NUM_SPHERES];
 __constant__ Plane * f;
 __constant__ PointLight * l;
-__constant__ Camera *cam;
+__constant__ Camera *cam;*/
 
 Camera* CameraInit();
 PointLight* LightInit();
@@ -25,6 +25,7 @@ __host__ __device__ Point CreatePoint(double x, double y, double z);
 __host__ __device__ color_t CreateColor(double r, double g, double b);
 
 __global__ void CUDARayTrace(color_t * pixelList);
+__global__ void CUDADummy(Camera * cam);//, Plane * f, PointLight *l, Sphere * s);
 
 __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l);
 __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, PointLight* l);
@@ -52,9 +53,8 @@ int main(void)
    srand ( time(NULL) );
    
    Image img(WINDOW_WIDTH, WINDOW_HEIGHT);
-   Camera* camera = CameraInit();
-   PointLight* light = LightInit();
-   
+   Camera* camera = CameraInit(), * cam_d;
+   PointLight* light = LightInit(), *l_d ;
    color_t * pixel_device = NULL;
    double aspectRatio = WINDOW_WIDTH; 
    aspectRatio /= WINDOW_HEIGHT;
@@ -63,26 +63,37 @@ int main(void)
   	
   	//SCENE SET UP
   	// (floor)
-   Plane* floor = new Plane();
+   Plane* floor = new Plane(), *f_d;
    //floor->center = CreatePoint(0, -1 * WINDOW_HEIGHT / 2, -1 * WINDOW_WIDTH / 2);
    //floor->color = CreateColor(200, 200, 200);
    //floor->normal = CreatePoint(0, 0, -1 * WINDOW_WIDTH / 2);
    // (spheres)
-   Sphere* spheres = CreateSpheres();
+   Sphere* spheres = CreateSpheres(), *s_d;
 
-   HANDLE_ERROR( cudaMemcpyToSymbol(f, floor, sizeof(Plane)) );
-   HANDLE_ERROR( cudaMemcpyToSymbol(l, light, sizeof(PointLight)) );
-   HANDLE_ERROR( cudaMemcpyToSymbol(cam, camera, sizeof(Camera)) );
-   HANDLE_ERROR( cudaMemcpyToSymbol(s, spheres, sizeof(Sphere)*NUM_SPHERES) );
+
+   //HANDLE_ERROR( cudaMemcpyToSymbol(cam, camera, sizeof(Camera)) );
+
 
    color_t * pixel_deviceD;
    HANDLE_ERROR( cudaMalloc(&pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT) );
 
+   HANDLE_ERROR( cudaMalloc((void**)&cam_d, sizeof(Camera)) );
+  /* HANDLE_ERROR( cudaMalloc(&f_d, sizeof(Plane)) );
+   HANDLE_ERROR( cudaMalloc(&l_d, sizeof(PointLight)) );
+   HANDLE_ERROR( cudaMalloc(&s_d,  sizeof(Sphere)*NUM_SPHERES));
+  */ 
+   //HANDLE_ERROR( cudaMemcpy(l_d, light, sizeof(PointLight), cudaMemcpyHostToDevice) );
+   HANDLE_ERROR( cudaMemcpy(cam_d, camera,sizeof(Camera), cudaMemcpyHostToDevice) );
+  /* HANDLE_ERROR( cudaMemcpy(f_d, floor,sizeof(Plane), cudaMemcpyHostToDevice) );
+   HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
+  */ 
+   
    //MEMCPY'S
    // The Kernel Call
-   CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 1023) / 1024, 1024 >>>(pixel_deviceD);
-   
+   //CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 1023) / 1024, 1024 >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
+   CUDADummy<<<1, 1>>>(cam_d);//, f_d, l_d, s_d);
    // Coming Back
+
    HANDLE_ERROR( cudaMemcpy(pixel_device, pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT, cudaMemcpyDeviceToHost) );
    fflush(stdout);
    
@@ -169,7 +180,10 @@ Sphere* CreateSpheres() {
 	
 	return spheres;
 }
-
+__global__ void CUDADummy(Camera * cam)//, Plane * f ,PointLight * l,Sphere * s)
+{
+  printf("C addr: %f\n", cam);//, F addr: %f, L addr: %f, Sphere addr: %s", cam, f, l, s); 
+}
 __global__ void CUDARayTrace(color_t * pixelList)
 {
     double tanVal = tan(FOV/2);
@@ -184,13 +198,13 @@ __global__ void CUDARayTrace(color_t * pixelList)
       return;
 
     //INIT RAY VALUES
-	  r.origin = cam->eye;
-    r.direction = cam->lookAt;
+//	  r.origin = cam->eye;
+//    r.direction = cam->lookAt;
     r.direction.y = tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
     r.direction.x = -1 * aspectRatio * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
 
 
-    returnColor = RayTrace(r, s, f, l);
+//    returnColor = RayTrace(r, s, f, l);
     int index = row *WINDOW_WIDTH + col;
     
     //printf("%d %f\n",index,pixelList[index].r);
@@ -230,7 +244,7 @@ __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
 
    		//fprintf(stderr, "r = %lf, g = %lf, b = %lf\n", s[closestSphere].color.r, s[closestSphere].color.g, s[closestSphere].color.b);
       	p = CreatePoint(r.direction.x * smallest, r.direction.y * smallest, r.direction.z * smallest);
-  //    	return SphereShading(closestSphere, r, p, s, l);
+      	return SphereShading(closestSphere, r, p, s, l);
    }
    
    return black;
@@ -284,23 +298,23 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
 	reflectVector.y *= reflectTemp;
 	reflectVector.z *= reflectTemp;
 	
-	a.r = l->ambient.r * sphereList[sNdx].ambient.r;
+  a.r = l->ambient.r * sphereList[sNdx].ambient.r;
 	a.g = l->ambient.g * sphereList[sNdx].ambient.g;
 	a.b = l->ambient.b * sphereList[sNdx].ambient.b;
-
-   if (NdotL > 0. ) {
-  //if(false){
+  
+   if (NdotL > 0 ) {
+   //if(true){
       //printf("%lf\n", NdotL);
       //printf("%lf %lf %lf\n", sphereList[sNdx].diffuse->r, sphereList[sNdx].diffuse->g, sphereList[sNdx].diffuse->b);
       //printf("%lf %lf %lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
 
       // Diffuse
-      d.r = NdotL * l->diffuse.r * sphereList[sNdx].diffuse.r;
-      d.g = NdotL * l->diffuse.g * sphereList[sNdx].diffuse.g;
-      d.b = NdotL * l->diffuse.b * sphereList[sNdx].diffuse.b;
-
+      d.r = .5; //NdotL * l->diffuse.r * sphereList[sNdx].diffuse.r;
+      d.g = .5; //NdotL * l->diffuse.g * sphereList[sNdx].diffuse.g;
+      d.b = .5; //NdotL * l->diffuse.b * sphereList[sNdx].diffuse.b;
+      
       // Specular
-      RdotV = pow(dot(reflectVector, viewVector), 2.0);
+      RdotV = dot(reflectVector, viewVector) * dot(reflectVector, viewVector);
       s.r = RdotV * l->specular.r * sphereList[sNdx].specular.r;
       s.g = RdotV * l->specular.g * sphereList[sNdx].specular.g;
       s.b = RdotV * l->specular.b * sphereList[sNdx].specular.b;
@@ -316,9 +330,9 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
       s.b = 0;
    }
    
-	total.r = a.r + d.r + s.r;
-	total.g = a.g + d.g + s.g;
-	total.b = a.b + d.b + s.b;
+	//total.r = a.r + d.r + s.r;
+	//total.g = a.g + d.g + s.g;
+	//total.b = a.b + d.b + s.b;
 
 	//fprintf(stderr, "LIGHT A  r = %lf, g = %lf, b = %lf\n", l->ambient->r, l->ambient->g, l->ambient->b);
 	//fprintf(stderr, "LIGHT D  r = %lf, g = %lf, b = %lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
@@ -332,7 +346,7 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
 
 __device__ Point normalize(Point p) {
 	double d = sqrt(dot(p, p));
-	
+  //double d = 1;
   p.x /= d;
 	p.y /= d;
 	p.z /= d;
@@ -352,9 +366,7 @@ __device__ Point subtractPoints(Point p1, Point p2) {
    p3.x = p1.x - p2.x;
    p3.y = p1.y - p2.y;
    p3.z = p1.z - p2.z;
-   /*if(p3.x == 0 && p3.y == 0 && p3.z == 0)
-   {
-     printf("2 vectors equal\n");
-   }*/
+   
    return p3;
+
 }
