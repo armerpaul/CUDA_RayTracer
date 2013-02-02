@@ -26,9 +26,9 @@ __host__ __device__ color_t CreateColor(double r, double g, double b);
 
 __global__ void CUDARayTrace(color_t * pixelList);
 
-__device__ color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l);
-__device__ color_t SphereShading(int sNdx, Ray* r, Point p, Sphere* sphereList, PointLight* l);
-__device__ double SphereRayIntersection(Sphere* s, Ray* r);
+__device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l);
+__device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, PointLight* l);
+__device__ double SphereRayIntersection(Sphere* s, Ray r);
 __device__ double dot(Point p1, Point p2);
 __device__ Point subtractPoints(Point p1, Point p2);
 __device__ Point normalize(Point p);
@@ -177,26 +177,39 @@ __global__ void CUDARayTrace(color_t * pixelList)
     int row = (blockIdx.x *blockDim.x + threadIdx.x ) / WINDOW_WIDTH;
     int col = (blockIdx.x *blockDim.x + threadIdx.x ) % WINDOW_WIDTH;
     color_t returnColor;
-    Ray * r = new Ray();
-   
-    //INIT RAY VALUES
-	r->origin = cam->eye;
-    r->direction = cam->lookAt;
-    r->direction.x = -1 * aspectRatio * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
-    r->direction.y = tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
+    Ray r;
     
-    returnColor = RayTrace(r, s, f, l);
+    //BOUNDARY CHECK
+    if(row > WINDOW_HEIGHT)
+      return;
 
+    //INIT RAY VALUES
+	  r.origin = cam->eye;
+    r.direction = cam->lookAt;
+    r.direction.y = tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
+    r.direction.x = -1 * aspectRatio * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
+
+
+    returnColor = RayTrace(r, s, f, l);
     int index = row *WINDOW_WIDTH + col;
-    printf("%d %f\n",index,pixelList[index].r);
+    
+    //printf("%d %f\n",index,pixelList[index].r);
+    if(index == 0)
+      printf("I SHOULD RUN IF WORKS");
     pixelList[index].r = returnColor.r;
     pixelList[index].g = returnColor.g;
     pixelList[index].b = returnColor.b;
     pixelList[index].f = returnColor.f;
- 
+    
+    
+    /*pixelList[index].r = index%256;
+    pixelList[index].g = 0;
+    pixelList[index].b = 0;
+    pixelList[index].f = 0;
+*/
 }
 
-__device__ color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l) {
+__device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
     color_t black = CreateColor(0, 0, 0); 
     double t, smallest;
    	Point p;
@@ -216,19 +229,19 @@ __device__ color_t RayTrace(Ray* r, Sphere* s, Plane* f, PointLight* l) {
    if (closestSphere > -1) {
 
    		//fprintf(stderr, "r = %lf, g = %lf, b = %lf\n", s[closestSphere].color.r, s[closestSphere].color.g, s[closestSphere].color.b);
-      	p = CreatePoint(r->direction.x * smallest, r->direction.y * smallest, r->direction.z * smallest);
-      	return SphereShading(closestSphere, r, p, s, l);
+      	p = CreatePoint(r.direction.x * smallest, r.direction.y * smallest, r.direction.z * smallest);
+  //    	return SphereShading(closestSphere, r, p, s, l);
    }
    
    return black;
 }
 
-__device__ double SphereRayIntersection(Sphere* s, Ray* r) {
+__device__ double SphereRayIntersection(Sphere* s, Ray r) {
 	double a, b, c, d, t1, t2;
     
-    a = dot((r->direction), (r->direction));
-    b = dot(subtractPoints((r->origin), (s->center)),(r->direction));
-    c = dot(subtractPoints((r->origin), (s->center)), subtractPoints((r->origin), (s->center)))
+    a = dot((r.direction), (r.direction));
+    b = dot(subtractPoints((r.origin), (s->center)),(r.direction));
+    c = dot(subtractPoints((r.origin), (s->center)), subtractPoints((r.origin), (s->center)))
             - (s->radius * s->radius);
     d = (b * b) - (a * c);
     
@@ -250,7 +263,7 @@ __device__ double SphereRayIntersection(Sphere* s, Ray* r) {
 	return d;
 }
 
-__device__ color_t SphereShading(int sNdx, Ray* r, Point p, Sphere* sphereList, PointLight* l) {
+__device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, PointLight* l) {
 	color_t a, d, s, total;
 	double reflectTemp, NdotL, RdotV;
 	Point viewVector, lightVector, reflectVector, normalVector;
@@ -259,14 +272,14 @@ __device__ color_t SphereShading(int sNdx, Ray* r, Point p, Sphere* sphereList, 
    //printf("r->%lf g->%lf b->%lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
    //printf("r->%lf g->%lf b->%lf\n\n", l->specular->r, l->specular->g, l->specular->b);
 
-	viewVector = normalize(subtractPoints((r->origin), p));
+	viewVector = normalize(subtractPoints((r.origin), p));
 	lightVector = normalize(subtractPoints(p, (l->position)));
 	normalVector = normalize(subtractPoints(p, (sphereList[sNdx].center)));
 	reflectVector = subtractPoints(normalVector, lightVector);
 
-   NdotL = dot(lightVector, normalVector);
-
-	reflectTemp = 2 * NdotL;
+  NdotL = dot(lightVector, normalVector);
+	
+  reflectTemp = 2 * NdotL;
 	reflectVector.x *= reflectTemp;
 	reflectVector.y *= reflectTemp;
 	reflectVector.z *= reflectTemp;
@@ -276,7 +289,7 @@ __device__ color_t SphereShading(int sNdx, Ray* r, Point p, Sphere* sphereList, 
 	a.b = l->ambient.b * sphereList[sNdx].ambient.b;
 
    if (NdotL > 0. ) {
-
+  //if(false){
       //printf("%lf\n", NdotL);
       //printf("%lf %lf %lf\n", sphereList[sNdx].diffuse->r, sphereList[sNdx].diffuse->g, sphereList[sNdx].diffuse->b);
       //printf("%lf %lf %lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
@@ -291,7 +304,7 @@ __device__ color_t SphereShading(int sNdx, Ray* r, Point p, Sphere* sphereList, 
       s.r = RdotV * l->specular.r * sphereList[sNdx].specular.r;
       s.g = RdotV * l->specular.g * sphereList[sNdx].specular.g;
       s.b = RdotV * l->specular.b * sphereList[sNdx].specular.b;
-
+      
       //printf("%lf %lf %lf\n\n", d.r, d.g, d.b);
 	} else {
       d.r = 0;
@@ -318,18 +331,18 @@ __device__ color_t SphereShading(int sNdx, Ray* r, Point p, Sphere* sphereList, 
 }
 
 __device__ Point normalize(Point p) {
-	Point n = p;
 	double d = sqrt(dot(p, p));
 	
-	n.x /= d;
-	n.y /= d;
-	n.z /= d;
+  p.x /= d;
+	p.y /= d;
+	p.z /= d;
 	
-	return n;
+	return p;
 }
 
 __device__ double dot(Point p1, Point p2) {
-   return p1.x * p2.x + p1.y * p2.y + p1.z * p2.z;
+  return p1.x * p2.x + p1.y * p2.y + p1.z * p2.z;
+  //return 5;
 }
 
 // This is essentially p1 - p2:
@@ -339,6 +352,9 @@ __device__ Point subtractPoints(Point p1, Point p2) {
    p3.x = p1.x - p2.x;
    p3.y = p1.y - p2.y;
    p3.z = p1.z - p2.z;
-
+   /*if(p3.x == 0 && p3.y == 0 && p3.z == 0)
+   {
+     printf("2 vectors equal\n");
+   }*/
    return p3;
 }
