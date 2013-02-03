@@ -7,12 +7,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-//#include <glm/glm.hpp>
+#include "glm/glm.hpp"
 #include <math.h>
 #include <algorithm>
 #include "Image.h"
 #include "types.h"
 #include "VanExLib.h"
+
 
 /*__constant__ Sphere s[NUM_SPHERES];
 __constant__ Plane * f;
@@ -31,9 +32,10 @@ __global__ void CUDADummy(Camera * cam);//, Plane * f, PointLight *l, Sphere * s
 __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l);
 __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, PointLight* l);
 __device__ float SphereRayIntersection(Sphere* s, Ray r);
-__device__ float dot(Point p1, Point p2);
+//__device__ float glm::dot(Point p1, Point p2);
 __device__ Point subtractPoints(Point p1, Point p2);
 __device__ Point normalize(Point p);
+
 
 /* 
  *  Handles CUDA errors, taking from provided sample code on clupo site
@@ -50,7 +52,7 @@ static void HandleError( cudaError_t err, const char * file, int line)
 
 int main(void) 
 {
-   // set up for random num generator
+  // set up for random num generator
    //srand ( time(NULL) );
    srand ( 0 );
    Image img(WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -265,9 +267,9 @@ __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
 __device__ float SphereRayIntersection(Sphere* s, Ray r) {
 	float a, b, c, d, t1, t2;
     
-    a = dot((r.direction), (r.direction));
-    b = dot(subtractPoints((r.origin), (s->center)),(r.direction));
-    c = dot(subtractPoints((r.origin), (s->center)), subtractPoints((r.origin), (s->center)))
+    a = glm::dot((r.direction), (r.direction));
+    b = glm::dot(subtractPoints((r.origin), (s->center)),(r.direction));
+    c = glm::dot(subtractPoints((r.origin), (s->center)), subtractPoints((r.origin), (s->center)))
             - (s->radius * s->radius);
     d = (b * b) - (a * c);
     
@@ -299,7 +301,7 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
 	normalVector = normalize(subtractPoints(p, (sphereList[sNdx].center)));
 	reflectVector = subtractPoints(normalVector, lightVector);
 
-  NdotL = dot(lightVector, normalVector);
+  NdotL = glm::dot(lightVector, normalVector);
 	
   reflectTemp = 2 * NdotL;
 	reflectVector.x *= reflectTemp;
@@ -316,7 +318,7 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
   d.b = NdotL * l->diffuse.b * sphereList[sNdx].diffuse.b * (NdotL > 0);
       
   // Specular
-  RdotV = dot(reflectVector, viewVector) * dot(reflectVector, viewVector);
+  RdotV = glm::dot(reflectVector, viewVector) * glm::dot(reflectVector, viewVector);
   s.r = RdotV * l->specular.r * sphereList[sNdx].specular.r * (NdotL > 0);
   s.g = RdotV * l->specular.g * sphereList[sNdx].specular.g * (NdotL > 0);
   s.b = RdotV * l->specular.b * sphereList[sNdx].specular.b * (NdotL > 0);
@@ -329,7 +331,7 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
 }
 
 __device__ Point normalize(Point p) {
-	float d = sqrt(dot(p, p));
+	float d = sqrt(glm::dot(p, p));
   
   p.x /= d;
 	p.y /= d;
@@ -337,19 +339,20 @@ __device__ Point normalize(Point p) {
 	
 	return p;
 }
-
-__device__ float dot(Point p1, Point p2) {
+/*
+__device__ float glm::dot(Point p1, Point p2) {
   return p1.x * p2.x + p1.y * p2.y + p1.z * p2.z;
+//	return glm::dot(p1,p2);
 }
-
+*/
 // This is essentially p1 - p2:
 __device__ Point subtractPoints(Point p1, Point p2) {
    Point p3;
 
-   p3.x = p1.x - p2.x;
+/*   p3.x = p1.x - p2.x;
    p3.y = p1.y - p2.y;
    p3.z = p1.z - p2.z;
-   
-   return p3;
+*/   
+   return p1-p2;
 
 }

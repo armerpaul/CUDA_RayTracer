@@ -1,5 +1,8 @@
+#include "glm/glm.hpp"
 #ifndef __TYPES_H__
 #define __TYPES_H__
+
+typedef glm::vec3 Point;
 
 /* Color struct */
 typedef struct {
@@ -9,10 +12,10 @@ typedef struct {
    float f; // "filter" or "alpha"
 } color_t;
 
-typedef struct {
+/*typedef struct {
    float x, y, z;
 } Point;
-
+*/
 typedef struct {
    Point center;
    float radius;
