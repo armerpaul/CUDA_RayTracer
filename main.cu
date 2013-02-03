@@ -62,7 +62,7 @@ int main(void)
    color_t * pixel_device = NULL;
    float aspectRatio = WINDOW_WIDTH; 
    aspectRatio /= WINDOW_HEIGHT;
-  // cudaEvent_t start, stop; 
+   cudaEvent_t start, stop; 
    pixel_device = new color_t[WINDOW_WIDTH * WINDOW_HEIGHT];
   	
   	//SCENE SET UP
@@ -75,7 +75,7 @@ int main(void)
    Sphere* spheres = CreateSpheres(), *s_d;
 
 
-   //HANDLE_ERROR( cudaMemcpyToSymbol(cam, camera, sizeof(Camera)) );
+  // HANDLE_ERROR( cudaMemcpyToSymbol(cam, camera, sizeof(Camera)) );
 
 
    color_t * pixel_deviceD;
@@ -92,9 +92,9 @@ int main(void)
    HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
    
    //CUDA Timing 
-   //HANDLE_ERROR( cudaEventCreate(&start) );
-   //HANDLE_ERROR( cudaEventCreate(&stop) );
-   //HANDLE_ERROR( cudaEventRecord(start, 0));
+   HANDLE_ERROR( cudaEventCreate(&start) );
+   HANDLE_ERROR( cudaEventCreate(&stop) );
+   HANDLE_ERROR( cudaEventRecord(start, 0));
 
    // The Kernel Call
    CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 383) / 384, 384  >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
@@ -102,12 +102,12 @@ int main(void)
 
    //CUDADummy<<<1, 1>>>(cam_d);//, f_d, l_d, s_d);
    // Coming Back
-   //HANDLE_ERROR(cudaEventRecord( stop, 0));
-   //HANDLE_ERROR(cudaEventSynchronize( stop ));
-   //float elapsedTime;
-   //HANDLE_ERROR(cudaEventElapsedTime( &elapsedTime, start, stop));
+   HANDLE_ERROR(cudaEventRecord( stop, 0));
+   HANDLE_ERROR(cudaEventSynchronize( stop ));
+   float elapsedTime;
+   HANDLE_ERROR(cudaEventElapsedTime( &elapsedTime, start, stop));
 
-   //printf("GPU computation time: %.1f ms\n", elapsedTime);
+   printf("GPU computation time: %.1f ms\n", elapsedTime);
 
    HANDLE_ERROR( cudaMemcpy(pixel_device, pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT, cudaMemcpyDeviceToHost) );
    fflush(stdout);
@@ -148,9 +148,9 @@ PointLight* LightInit() {
 
    l->ambient = CreateColor(0.2, 0.2, 0.2);
    l->diffuse = CreateColor(0.6, 0.6, 0.6);
-   l->specular = CreateColor(0.9, 0.9, 0.9);
+   l->specular = CreateColor(0.4, 0.4, 0.4);
 
-   l->position = CreatePoint(-1 * WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, -1 * WINDOW_WIDTH / 2);
+   l->position = CreatePoint(0, 0, -600);
 
    return l;
 }
@@ -183,10 +183,10 @@ Sphere* CreateSpheres() {
    while (num < NUM_SPHERES) {
       for (i=0; i < 6 && num < NUM_SPHERES; i++) {
          for (j=0; j < 5 && num < NUM_SPHERES; j++) {
-            spheres[num].radius = 30. - rand() % 10;
-            spheres[num].center = CreatePoint(j * 80. - 80. + rand() % 15,
-                                              i * 80. - 200. + rand() % 15,
-                                              -700. - k * 100 + rand() % 15);
+            spheres[num].radius = 40. - rand() % 10;
+            spheres[num].center = CreatePoint(WINDOW_WIDTH/10 + 100 - rand() % 300,
+                                              100 - rand() % 200,
+                                              -200. - rand() %200); //- rand() % 20);
             spheres[num].ambient = CreateColor(std::min((i + j) * .15, 1.),
                                                std::min((j + k) * .15, 1.),
                                                std::max(1. - (k + i) * .15, 0.));
@@ -240,7 +240,7 @@ __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, 
 }
 
 __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
-    color_t black = CreateColor(0, 0, 0); 
+   // color_t black = CreateColor(1.f, 0, 0); 
     float t, smallest;
    	Point p;
    	int i = 0, closestSphere = -1;
@@ -259,10 +259,12 @@ __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
 
    if (closestSphere > -1) {
       	p = CreatePoint(r.direction.x * smallest, r.direction.y * smallest, r.direction.z * smallest);
-      	return SphereShading(closestSphere, r, p, s, l);
+       // return CreateColor(0,1.f,0);
+       return SphereShading(closestSphere, r, p, s, l);
+    
    }
    
-   return black;
+   return CreateColor(0,0,0);
 }
 
 __device__ float SphereRayIntersection(Sphere* s, Ray r) {
@@ -298,17 +300,21 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
    //printf("r->%lf g->%lf b->%lf\n\n", l->specular->r, l->specular->g, l->specular->b);
 
 	viewVector = glm::normalize((r.origin)- p);
-	lightVector = glm::normalize(p- (l->position));
-	normalVector = glm::normalize(p- (sphereList[sNdx].center));
-	reflectVector = normalVector- lightVector;
-
-  NdotL = glm::dot(lightVector, normalVector);
 	
+	lightVector = glm::normalize((l->position) -p);
+	normalVector = glm::normalize(p- (sphereList[sNdx].center));
+	
+  NdotL = glm::dot(lightVector, normalVector);
+//  reflectVector = normalVector - lightVector;
+  reflectVector = (2.f *normalVector*NdotL);
+ // reflectVector = glm::reflect(-lightVector,normalVector);
+	/*
   reflectTemp = 2 * NdotL;
 	reflectVector.x *= reflectTemp;
 	reflectVector.y *= reflectTemp;
 	reflectVector.z *= reflectTemp;
-	
+	*/
+
   a.r = l->ambient.r * sphereList[sNdx].ambient.r;
 	a.g = l->ambient.g * sphereList[sNdx].ambient.g;
 	a.b = l->ambient.b * sphereList[sNdx].ambient.b;
@@ -319,15 +325,19 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
   d.b = NdotL * l->diffuse.b * sphereList[sNdx].diffuse.b * (NdotL > 0);
       
   // Specular
-  RdotV = glm::dot(reflectVector, viewVector) * glm::dot(reflectVector, viewVector);
-  s.r = RdotV * l->specular.r * sphereList[sNdx].specular.r * (NdotL > 0);
-  s.g = RdotV * l->specular.g * sphereList[sNdx].specular.g * (NdotL > 0);
-  s.b = RdotV * l->specular.b * sphereList[sNdx].specular.b * (NdotL > 0);
-      
-	total.r = a.r + d.r + s.r;
-	total.g = a.g + d.g + s.g;
-	total.b = a.b + d.b + s.b;
-
+  RdotV = glm::pow(glm::dot(reflectVector, viewVector), 1.f);
+  //RdotV = glm::dot(reflectVector,viewVector) *glm::dot(reflectVector,viewVector) ;
+  s.r = RdotV * l->specular.r * sphereList[sNdx].specular.r * (NdotL > 0) *(RdotV>0);
+  s.g = RdotV * l->specular.g * sphereList[sNdx].specular.g * (NdotL > 0) *(RdotV>0);
+  s.b = RdotV * l->specular.b * sphereList[sNdx].specular.b * (NdotL > 0) *(RdotV>0);
+/*	
+  total.r =  -s.r;
+	total.g =  -s.g;
+	total.b =  -s.b;*/
+  total.r = glm::min(1.f, a.r + d.r + s.r);
+	total.g = glm::min(1.f, a.g + d.g + s.g);
+	total.b = glm::min(1.f, a.b + d.b + s.b);
+  total.f = 1.f;
 	return total;
 }
 /*

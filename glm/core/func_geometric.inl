@@ -271,7 +271,7 @@ namespace glm
 
 	// reflect
 	template <typename genType>
-	genType reflect
+	GLM_FUNC_QUALIFIER genType reflect
 	(
 		genType const & I, 
 		genType const & N
