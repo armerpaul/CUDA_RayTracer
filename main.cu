@@ -59,7 +59,7 @@ int main(void)
    color_t * pixel_device = NULL;
    float aspectRatio = WINDOW_WIDTH; 
    aspectRatio /= WINDOW_HEIGHT;
-   
+  // cudaEvent_t start, stop; 
    pixel_device = new color_t[WINDOW_WIDTH * WINDOW_HEIGHT];
   	
   	//SCENE SET UP
@@ -88,14 +88,23 @@ int main(void)
    HANDLE_ERROR( cudaMemcpy(f_d, floor,sizeof(Plane), cudaMemcpyHostToDevice) );
    HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
    
-   
-   // The Kernel Call
+   //CUDA Timing 
+   //HANDLE_ERROR( cudaEventCreate(&start) );
+   //HANDLE_ERROR( cudaEventCreate(&stop) );
+   //HANDLE_ERROR( cudaEventRecord(start, 0));
 
-   CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 559) / 560 +2, 560 >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
+   // The Kernel Call
+   CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 383) / 384, 384  >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
    //CUDARayTrace<<< 100, 575 >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
 
    //CUDADummy<<<1, 1>>>(cam_d);//, f_d, l_d, s_d);
    // Coming Back
+   //HANDLE_ERROR(cudaEventRecord( stop, 0));
+   //HANDLE_ERROR(cudaEventSynchronize( stop ));
+   //float elapsedTime;
+   //HANDLE_ERROR(cudaEventElapsedTime( &elapsedTime, start, stop));
+
+   //printf("GPU computation time: %.1f ms\n", elapsedTime);
 
    HANDLE_ERROR( cudaMemcpy(pixel_device, pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT, cudaMemcpyDeviceToHost) );
    fflush(stdout);
@@ -218,8 +227,8 @@ __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, 
     returnColor = RayTrace(r, s, f, l);
     int index = row *WINDOW_WIDTH + col;
     
-    if(index == 0)
-      printf("I RAN, I WORKED\n");
+    //if(index == 0)
+    //  printf("I RAN, I WORKED\n");
     pixelList[index].r = returnColor.r;
     pixelList[index].g = returnColor.g;
     pixelList[index].b = returnColor.b;
@@ -237,7 +246,8 @@ __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
     while (i < NUM_SPHERES) {
     t = SphereRayIntersection(s + i, r);
 
-		if (t > 0 && (t < smallest || closestSphere < 0)) {
+		
+    if (t > 0 && (t < smallest || closestSphere < 0)) {
 			smallest = t;
 			closestSphere = i;
 		}
@@ -261,11 +271,6 @@ __device__ float SphereRayIntersection(Sphere* s, Ray r) {
             - (s->radius * s->radius);
     d = (b * b) - (a * c);
     
-		/*t1 = (-1 * b - sqrt(d)) / a;
-		t2 = (-1 * b + sqrt(d)) / a;
-    return (d < 0) * d +
-           (d >= 0) * ((t2 > t1 && t2 > 0) *t2 +
-                      (t2 <= t1 || t2 <= 0) * (t1 > 0) * t1);*/ //Branchless implementation, slower than Regular
     if (d >= 0) {
 
 		t1 = (-1 * b - sqrt(d)) / a;
