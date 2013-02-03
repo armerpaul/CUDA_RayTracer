@@ -33,8 +33,9 @@ __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l);
 __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, PointLight* l);
 __device__ float SphereRayIntersection(Sphere* s, Ray r);
 //__device__ float glm::dot(Point p1, Point p2);
-__device__ Point subtractPoints(Point p1, Point p2);
-__device__ Point normalize(Point p);
+//__device__ Point subtractPoints(Point p1, Point p2);
+//__device__ Point glm::normalize(Point p);
+
 
 
 /* 
@@ -268,8 +269,8 @@ __device__ float SphereRayIntersection(Sphere* s, Ray r) {
 	float a, b, c, d, t1, t2;
     
     a = glm::dot((r.direction), (r.direction));
-    b = glm::dot(subtractPoints((r.origin), (s->center)),(r.direction));
-    c = glm::dot(subtractPoints((r.origin), (s->center)), subtractPoints((r.origin), (s->center)))
+    b = glm::dot((r.origin)- (s->center),(r.direction));
+    c = glm::dot((r.origin)-(s->center), (r.origin)- (s->center))
             - (s->radius * s->radius);
     d = (b * b) - (a * c);
     
@@ -296,10 +297,10 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
    //printf("r->%lf g->%lf b->%lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
    //printf("r->%lf g->%lf b->%lf\n\n", l->specular->r, l->specular->g, l->specular->b);
 
-	viewVector = normalize(subtractPoints((r.origin), p));
-	lightVector = normalize(subtractPoints(p, (l->position)));
-	normalVector = normalize(subtractPoints(p, (sphereList[sNdx].center)));
-	reflectVector = subtractPoints(normalVector, lightVector);
+	viewVector = glm::normalize((r.origin)- p);
+	lightVector = glm::normalize(p- (l->position));
+	normalVector = glm::normalize(p- (sphereList[sNdx].center));
+	reflectVector = normalVector- lightVector;
 
   NdotL = glm::dot(lightVector, normalVector);
 	
@@ -329,8 +330,8 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
 
 	return total;
 }
-
-__device__ Point normalize(Point p) {
+/*
+__device__ Point glm::normalize(Point p) {
 	float d = sqrt(glm::dot(p, p));
   
   p.x /= d;
@@ -339,6 +340,7 @@ __device__ Point normalize(Point p) {
 	
 	return p;
 }
+*/
 /*
 __device__ float glm::dot(Point p1, Point p2) {
   return p1.x * p2.x + p1.y * p2.y + p1.z * p2.z;
@@ -346,13 +348,14 @@ __device__ float glm::dot(Point p1, Point p2) {
 }
 */
 // This is essentially p1 - p2:
+/*
 __device__ Point subtractPoints(Point p1, Point p2) {
    Point p3;
 
-/*   p3.x = p1.x - p2.x;
+   p3.x = p1.x - p2.x;
    p3.y = p1.y - p2.y;
    p3.z = p1.z - p2.z;
-*/   
-   return p1-p2;
+   
+  return p1-p2;
 
-}
+}*/
