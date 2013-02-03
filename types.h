@@ -3,19 +3,19 @@
 
 /* Color struct */
 typedef struct {
-   double r;
-   double g;
-   double b;
-   double f; // "filter" or "alpha"
+   float r;
+   float g;
+   float b;
+   float f; // "filter" or "alpha"
 } color_t;
 
 typedef struct {
-   double x, y, z;
+   float x, y, z;
 } Point;
 
 typedef struct {
    Point center;
-   double radius;
+   float radius;
    color_t ambient, diffuse, specular;
 } Sphere;
 
