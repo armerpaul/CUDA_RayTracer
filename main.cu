@@ -23,6 +23,7 @@ __constant__ Camera *cam;*/
 Camera* CameraInit();
 PointLight* LightInit();
 Sphere* CreateSpheres();
+Plane* CreatePlanes();
 __host__ __device__ Point CreatePoint(float x, float y, float z);
 __host__ __device__ color_t CreateColor(float r, float g, float b);
 
@@ -30,8 +31,9 @@ __global__ void CUDARayTrace(Camera * cam, Plane * f, PointLight *l, Sphere * s,
 __global__ void CUDADummy(Camera * cam);//, Plane * f, PointLight *l, Sphere * s);
 
 __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l);
-__device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, PointLight* l);
+__device__ color_t Shading(Ray r, Point p, Point normalVector, PointLight* l, color_t diffuse, color_t ambient, color_t specular); 
 __device__ float SphereRayIntersection(Sphere* s, Ray r);
+__device__ float PlaneRayIntersection(Plane* s, Ray r);
 //__device__ float glm::dot(Point p1, Point p2);
 //__device__ Point subtractPoints(Point p1, Point p2);
 //__device__ Point glm::normalize(Point p);
@@ -67,7 +69,7 @@ int main(void)
   	
   	//SCENE SET UP
   	// (floor)
-   Plane* floor = new Plane(), *f_d;
+   Plane* floor = CreatePlanes(), *f_d;
    //floor->center = CreatePoint(0, -1 * WINDOW_HEIGHT / 2, -1 * WINDOW_WIDTH / 2);
    //floor->color = CreateColor(200, 200, 200);
    //floor->normal = CreatePoint(0, 0, -1 * WINDOW_WIDTH / 2);
@@ -203,10 +205,28 @@ Sphere* CreateSpheres() {
    return spheres;
 
 }
+
+#define NUM_PLANES 1
+
+Plane* CreatePlanes() {
+   Plane* planes = new Plane[NUM_PLANES]();
+   int num=0;
+   while (num < NUM_PLANES) {
+            planes[num].normal = CreatePoint(0,0,0) ;
+            planes[num].center = CreatePoint(0,200,0);
+            planes[num].ambient = CreateColor(.5,.5,.5);
+            planes[num].diffuse =  CreateColor(.5,.5,.5);
+            planes[num].specular = CreateColor(1.,1.,1.);
+            num++;
+   }
+   return planes;
+}
+
 __global__ void CUDADummy(Camera * cam)//, Plane * f ,PointLight * l,Sphere * s)
 {
   printf("C addr: %f\n", cam->lookAt.z);//, F addr: %f, L addr: %f, Sphere addr: %s", cam, f, l, s); 
 }
+
 __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, color_t * pixelList)
 {
     float tanVal = tan(FOV/2);
@@ -242,30 +262,67 @@ __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, 
 __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
    // color_t black = CreateColor(1.f, 0, 0); 
     float t, smallest;
-   	Point p;
-   	int i = 0, closestSphere = -1;
+   	Point p, normalVector;
+   	int i = 0, closestSphere = -1, closestPlane = -1;
 
     
     while (i < NUM_SPHERES) {
-    t = SphereRayIntersection(s + i, r);
+      t = SphereRayIntersection(s + i, r);
 
 
-    if (t > 0 && (closestSphere < 0 || t < smallest)) {
-      smallest = t;
-			closestSphere = i;
-		}
-      	i++;
-   }
+      if (t > 0 && (closestSphere < 0 || t < smallest)) {
+        smallest = t;
+        closestSphere = i;
+      }
+      i++;
+    }
+i=0;
+    while (i < NUM_PLANES) {
+      t = PlaneRayIntersection(f, r);
 
-   if (closestSphere > -1) {
-      	p = CreatePoint(r.direction.x * smallest, r.direction.y * smallest, r.direction.z * smallest);
-       // return CreateColor(0,1.f,0);
-       return SphereShading(closestSphere, r, p, s, l);
-    
-   }
-   
-   return CreateColor(0,0,0);
+
+      if (t > 0 && (closestSphere < 0 || t < smallest)) {
+        smallest = t;
+        closestPlane = i;
+      }
+      i++;
+    }
+
+    if(closestPlane > -1)
+    {
+      //plane closer than sphere
+      p = CreatePoint(r.direction.x * smallest, r.direction.y * smallest, r.direction.z * smallest);
+	    normalVector = glm::normalize(f[closestPlane].normal-f[closestPlane].center);
+      return Shading(r, p, normalVector, l, f[closestPlane].diffuse,
+      f[closestPlane].ambient,f[closestPlane].specular);
+    }
+
+    else   if (closestSphere > -1) {
+      p = CreatePoint(r.direction.x * smallest, r.direction.y * smallest, r.direction.z * smallest);
+	    normalVector = glm::normalize((s[closestSphere].center)-p);
+      return Shading(r, p, normalVector, l, s[closestSphere].diffuse,
+      s[closestSphere].ambient,s[closestSphere].specular);
+    }
+
+    return CreateColor(0,0,0);
 }
+
+__device__ float PlaneRayIntersection(Plane *p, Ray r)
+{
+  float t;
+  Point N = p->normal - p->center;
+  float denominator = glm::dot(r.direction,N);
+  if(denominator!=0)
+  {
+    t = (glm::dot(p->center-r.origin,N)) / denominator;
+    return t;
+  }
+  else
+  {
+    return -1;
+  }
+}
+
 
 __device__ float SphereRayIntersection(Sphere* s, Ray r) {
 	float a, b, c, d, t1, t2;
@@ -281,7 +338,7 @@ __device__ float SphereRayIntersection(Sphere* s, Ray r) {
 		t1 = (-1 * b - sqrt(d)) / a;
 		t2 = (-1 * b + sqrt(d)) / a;
     
-		if (t2 > t1 && t2 > 0) {
+		if (t2 < t1 && t2 > 0) {
 			return t2;
 		} else if (t1 > 0) {
 			return t1;
@@ -290,10 +347,11 @@ __device__ float SphereRayIntersection(Sphere* s, Ray r) {
 	return d;
 }
 
-__device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, PointLight* l) {
+__device__ color_t Shading(Ray r, Point p, Point normalVector,
+PointLight* l, color_t diffuse, color_t ambient, color_t specular) {
 	color_t a, d, s, total;
-	float reflectTemp, NdotL, RdotV;
-	Point viewVector, lightVector, reflectVector, normalVector;
+	float NdotL, RdotV;
+	Point viewVector, lightVector, reflectVector;
 
    //printf("r->%lf g->%lf b->%lf\n", l->ambient->r, l->ambient->g, l->ambient->b);
    //printf("r->%lf g->%lf b->%lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
@@ -302,11 +360,10 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
 	viewVector = glm::normalize((r.origin)-p);
 	
 	lightVector = glm::normalize((l->position) -p);
-	normalVector = glm::normalize((sphereList[sNdx].center)-p);
 	
   NdotL = glm::dot(lightVector, normalVector);
 //  reflectVector = normalVector - lightVector;
-  reflectVector = (2.f *normalVector*NdotL);
+  reflectVector = (2.f *normalVector*NdotL) -lightVector;
  // reflectVector = glm::reflect(-lightVector,normalVector);
 	/*
   reflectTemp = 2 * NdotL;
@@ -315,21 +372,21 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
 	reflectVector.z *= reflectTemp;
 	*/
 
-  a.r = l->ambient.r * sphereList[sNdx].ambient.r;
-	a.g = l->ambient.g * sphereList[sNdx].ambient.g;
-	a.b = l->ambient.b * sphereList[sNdx].ambient.b;
+  a.r = l->ambient.r * ambient.r;
+	a.g = l->ambient.g * ambient.g;
+	a.b = l->ambient.b * ambient.b;
   
   // Diffuse
-  d.r = NdotL * l->diffuse.r * sphereList[sNdx].diffuse.r * (NdotL > 0);
-  d.g = NdotL * l->diffuse.g * sphereList[sNdx].diffuse.g * (NdotL > 0);
-  d.b = NdotL * l->diffuse.b * sphereList[sNdx].diffuse.b * (NdotL > 0);
+  d.r = NdotL * l->diffuse.r * diffuse.r * (NdotL > 0);
+  d.g = NdotL * l->diffuse.g * diffuse.g * (NdotL > 0);
+  d.b = NdotL * l->diffuse.b * diffuse.b * (NdotL > 0);
       
   // Specular
   RdotV = glm::pow(glm::dot(glm::normalize(reflectVector), viewVector), 100.f);
   //RdotV = glm::dot(reflectVector,viewVector) *glm::dot(reflectVector,viewVector) ;
-  s.r = RdotV * l->specular.r * sphereList[sNdx].specular.r * (NdotL > 0) *(RdotV>0);
-  s.g = RdotV * l->specular.g * sphereList[sNdx].specular.g * (NdotL > 0) *(RdotV>0);
-  s.b = RdotV * l->specular.b * sphereList[sNdx].specular.b * (NdotL > 0) *(RdotV>0);
+  s.r = RdotV * l->specular.r * specular.r * (NdotL > 0) *(RdotV>0);
+  s.g = RdotV * l->specular.g * specular.g * (NdotL > 0) *(RdotV>0);
+  s.b = RdotV * l->specular.b * specular.b * (NdotL > 0) *(RdotV>0);
 /*	
   total.r =  -s.r;
 	total.g =  -s.g;
