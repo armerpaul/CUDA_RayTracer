@@ -1,0 +1,4 @@
+*.tga
+gpu
+cpu
+*.out

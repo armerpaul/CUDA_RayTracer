@@ -9,4 +9,4 @@ gpu: Image.cpp main.cu VanExLib.h types.h
 cpu: Image.cpp main.cpp VanExLib.h types.h
 	g++ -o cpu -g Image.cpp main.cpp 
 clean:
-	rm gpu cpu
+	rm gpu cpu *.tga
