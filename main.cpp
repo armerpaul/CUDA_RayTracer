@@ -256,9 +256,9 @@ color_t SphereShading(int sNdx, Ray* r, Point p, Sphere* sphereList, PointLight*
       s.b = 0;
    }
    
-	total.r = a.r + d.r + s.r;
-	total.g = a.g + d.g + s.g;
-	total.b = a.b + d.b + s.b;
+	total.r = glm::min(1.f, a.r + d.r + s.r);
+	total.g = glm::min(1.f,a.g + d.g + s.g);
+	total.b = glm::min(1.f,a.b + d.b + s.b);
 
 	//fprintf(stderr, "LIGHT A  r = %lf, g = %lf, b = %lf\n", l->ambient->r, l->ambient->g, l->ambient->b);
 	//fprintf(stderr, "LIGHT D  r = %lf, g = %lf, b = %lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);

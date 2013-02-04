@@ -150,7 +150,7 @@ PointLight* LightInit() {
    l->diffuse = CreateColor(0.6, 0.6, 0.6);
    l->specular = CreateColor(0.4, 0.4, 0.4);
 
-   l->position = CreatePoint(0, 0, -600);
+   l->position = CreatePoint(600, 0, -200);
 
    return l;
 }
@@ -249,9 +249,9 @@ __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
     while (i < NUM_SPHERES) {
     t = SphereRayIntersection(s + i, r);
 
-		
-    if (t > 0 && (t < smallest || closestSphere < 0)) {
-			smallest = t;
+
+    if (t > 0 && (closestSphere < 0 || t < smallest)) {
+      smallest = t;
 			closestSphere = i;
 		}
       	i++;
@@ -299,10 +299,10 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
    //printf("r->%lf g->%lf b->%lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
    //printf("r->%lf g->%lf b->%lf\n\n", l->specular->r, l->specular->g, l->specular->b);
 
-	viewVector = glm::normalize((r.origin)- p);
+	viewVector = glm::normalize((r.origin)-p);
 	
 	lightVector = glm::normalize((l->position) -p);
-	normalVector = glm::normalize(p- (sphereList[sNdx].center));
+	normalVector = glm::normalize((sphereList[sNdx].center)-p);
 	
   NdotL = glm::dot(lightVector, normalVector);
 //  reflectVector = normalVector - lightVector;
@@ -325,7 +325,7 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
   d.b = NdotL * l->diffuse.b * sphereList[sNdx].diffuse.b * (NdotL > 0);
       
   // Specular
-  RdotV = glm::pow(glm::dot(reflectVector, viewVector), 1.f);
+  RdotV = glm::pow(glm::dot(glm::normalize(reflectVector), viewVector), 100.f);
   //RdotV = glm::dot(reflectVector,viewVector) *glm::dot(reflectVector,viewVector) ;
   s.r = RdotV * l->specular.r * sphereList[sNdx].specular.r * (NdotL > 0) *(RdotV>0);
   s.g = RdotV * l->specular.g * sphereList[sNdx].specular.g * (NdotL > 0) *(RdotV>0);
