@@ -1,7 +1,7 @@
 ﻿CPP = g++
 GFLAGS = -g
 NVCC = nvcc
-NVFLAGS = -g -G -gencode arch=compute_20,code=sm_20
+NVFLAGS = -gencode arch=compute_20,code=sm_20 -O3
 LIBS = -lcudart
 all: gpu
 gpu: Image.cpp cudaRayTrace.cu cudaRayTrace.h types.h

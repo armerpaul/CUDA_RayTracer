@@ -87,7 +87,9 @@ int main(void)
    HANDLE_ERROR( cudaEventRecord(start, 0));
 
    // The Kernel Call
-   CUDARayTrace<<< (WINDOW_WIDTH * WINDOW_HEIGHT + 383) / 384, 384  >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
+   dim3 gridSize((WINDOW_WIDTH+15)/16, (WINDOW_HEIGHT+15)/16);
+   dim3 blockSize(16,16);
+   CUDARayTrace<<< gridSize, blockSize  >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
 
    // Coming Back
    HANDLE_ERROR(cudaEventRecord( stop, 0));
@@ -144,7 +146,7 @@ PointLight* LightInit() {
    l->diffuse = CreateColor(0.6, 0.6, 0.6);
    l->specular = CreateColor(0.4, 0.4, 0.4);
 
-   l->position = CreatePoint(50, 0, -150);
+   l->position = CreatePoint(50, 0, -200);
 
    return l;
 }
@@ -185,7 +187,7 @@ Sphere* CreateSpheres() {
             randg = (rand()%1000) /1000.f ;
             randb = (rand()%1000) /1000.f ;
             spheres[num].radius = 11. - rand() % 10;
-            spheres[num].center = CreatePoint(WINDOW_WIDTH/8 - rand() % 200,
+            spheres[num].center = CreatePoint(rand() % 200,
                                               100 - rand() % 200,
                                               -200. - rand() %200);
             spheres[num].ambient = CreateColor(randr, randg, randb);
@@ -203,23 +205,22 @@ Sphere* CreateSpheres() {
 __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, color_t * pixelList)
 {
     float tanVal = tan(FOV/2);
-    float aspectRatio = WINDOW_WIDTH / WINDOW_HEIGHT;
 
     //CALCULATE ABSOLUTE ROW,COL
-    int row = (blockIdx.x *blockDim.x + threadIdx.x ) / WINDOW_WIDTH;
-    int col = (blockIdx.x *blockDim.x + threadIdx.x ) % WINDOW_WIDTH;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
     color_t returnColor;
     Ray r;
     
     //BOUNDARY CHECK
-    if(row > WINDOW_HEIGHT)
+    if(row >= WINDOW_HEIGHT || col >= WINDOW_WIDTH)
       return;
 
     //INIT RAY VALUES
 	  r.origin = cam->eye;
     r.direction = cam->lookAt;
     r.direction.y = tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
-    r.direction.x = -1 * aspectRatio * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
+    r.direction.x = -1 * WINDOW_WIDTH / WINDOW_HEIGHT * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
 
 
     //RAY TRACE
@@ -241,9 +242,7 @@ __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, 
 __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
     color_t color = CreateColor(0, 0, 0); 
     float t, smallest;
-   	Point p;
    	int i = 0, closestSphere = -1, sphereInShadow = false;
-    int closestShadow = -1, closestSphereS = -1;
     
     //FIND CLOSEST SPHERE ALONG RAY R
     while (i < NUM_SPHERES) {
@@ -259,27 +258,28 @@ __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
     //SETUP FOR SHADOW CALCULATIONS
     i = 0;
     Ray shadowRay;
-    p = CreatePoint(r.direction.x * smallest, r.direction.y * smallest, r.direction.z * smallest);
-    shadowRay.origin = p;
-    shadowRay.direction = l->position-p;
+    shadowRay.origin = CreatePoint(r.direction.x * smallest, r.direction.y * smallest, r.direction.z * smallest);
+
+    shadowRay.direction = l->position - shadowRay.origin;
 
     //DETERMINE IF SPHERE IS BLOCKING RAY FROM LIGHT TO SPHERE
-    while (i <NUM_SPHERES){ 
-      t = SphereRayIntersection(s + i, shadowRay);
-      if(t > 0 && t < 1  && i != closestSphere && (closestSphereS <0|| t < closestShadow)){
-        closestShadow = t;
-        closestSphereS = i;
-        sphereInShadow = true;
-      }
-      i++;
-    }
-    
-    //IF SHADOWED, ONLY SHOW AMBIENT LIGHTING
-    if(!sphereInShadow && closestSphere > -1)
+    if(closestSphere > -1)
     {
-      return SphereShading(closestSphere, r, p, s, l);
+      while (i <NUM_SPHERES){ 
+        t = SphereRayIntersection(s + i, shadowRay);
+        if(i != closestSphere && t < 1 && t > 0){
+          sphereInShadow = true;
+          break;
+        }
+        i++;
+      }
     }
-    else if(closestSphere > -1) 
+    //IF SHADOWED, ONLY SHOW AMBIENT LIGHTING
+    if(closestSphere > -1 && !sphereInShadow)
+    {
+      return SphereShading(closestSphere, r, shadowRay.origin, s, l);
+    }
+    if(closestSphere > -1)
     {
       color.r = l->ambient.r * s[closestSphere].ambient.r;
       color.g = l->ambient.g * s[closestSphere].ambient.g;
@@ -301,10 +301,10 @@ __device__ float SphereRayIntersection(Sphere* s, Ray r) {
     
     if (d >= 0) {
 
-		t1 = (-1 * b - sqrt(d)) / a;
-		t2 = (-1 * b + sqrt(d)) / a;
+		t1 = (-1 * b - sqrt(d)) / (a);
+		t2 = (-1 * b + sqrt(d)) / (a);
     
-		if (t2 > t1 && t1 > 0) {
+    if (t2 > t1 && t1 > 0) {
 			return t1;
 		
     } else if (t2 > 0) {
@@ -350,5 +350,6 @@ __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, P
 	  total.g = glm::min(1.f, a.g + d.g+ s.g);
 	  total.b = glm::min(1.f, a.b + d.b+ s.b);
     total.f = 1.f;
-	  return total;
+	  
+    return total;
 }
