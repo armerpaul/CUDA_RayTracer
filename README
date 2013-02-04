@@ -1,0 +1,40 @@
+======================================
+
+458 & 570 Combo Lab
+CUDA Ray Tracer
+Prof. Christofer Lupo & Prof. Zoë Wood
+
+Paul Armer (parmer)
+Bryan Ching (bcching)
+Matthew Crussell (macrusse)
+
+======================================
+
+
+General Process of Parallelization
+----------------------------------
+The main way that we parallelized the ray tracer is to make a thread for each ray. We
+also removed some conditional statements to avoid divergence.
+
+
+GPU Times
+---------
+ 420.9 ms
+ 422.4 ms
+ 421.2 ms
+ 
+ 
+CPU Times
+---------
+ 12.854 s
+ 12.739 s
+ 12.572 s
+ 
+ 
+Instructions for Compiling and Running
+--------------------------------------
+make to compile code 
+./gpu to run
+raytraced.tga will be created (view however you wish)
+
+To make changes in sphere numbers, edit cudaRayTrace.h
