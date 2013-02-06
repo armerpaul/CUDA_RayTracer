@@ -33,6 +33,7 @@ CPU Times
  
 Instructions for Compiling and Running
 --------------------------------------
+unzip glm
 make to compile code 
 ./gpu to run
 raytraced.tga will be created (view however you wish)
