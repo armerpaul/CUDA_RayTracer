@@ -2,10 +2,10 @@
 #define VANEXLIB_H
 
 #define WINDOW_WIDTH 1024
-#define WINDOW_HEIGHT 768
+#define WINDOW_HEIGHT 1024 
 #define SCREEN_DISTANCE -1
 #define NUM_WALLS 1
-#define NUM_SPHERES 1000
+#define NUM_SPHERES 100
 
 #define AMBIENT .2
 #define DIFFUSE .6

@@ -48,16 +48,16 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
 {
   
   // set up for random num generator
-  // srand ( time(NULL) );
+   srand ( time(NULL) );
    
-  // Image img(WINDOW_WIDTH, WINDOW_HEIGHT);
+   Image img(WINDOW_WIDTH, WINDOW_HEIGHT);
    Camera* camera = CameraInit(), * cam_d;
    PointLight* light = LightInit(), *l_d ;
-   color_t * pixel_device = NULL;
+   color_t * pixel_device = pos;
    float aspectRatio = WINDOW_WIDTH; 
    aspectRatio /= WINDOW_HEIGHT;
    cudaEvent_t start, stop; 
-   pixel_device = new color_t[WINDOW_WIDTH * WINDOW_HEIGHT];
+//   pixel_device = new color_t[WINDOW_WIDTH * WINDOW_HEIGHT];
   	
   	//SCENE SET UP
   	// (floor)
@@ -66,6 +66,7 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
    
    // (spheres)
    Sphere* spheres = CreateSpheres(), *s_d;
+
 
 
 
@@ -91,7 +92,7 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
    dim3 gridSize((WINDOW_WIDTH+15)/16, (WINDOW_HEIGHT+15)/16);
    dim3 blockSize(16,16);
    CUDARayTrace<<< gridSize, blockSize  >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
-cudaThreadSynchronize();
+
    // Coming Back
    HANDLE_ERROR(cudaEventRecord( stop, 0));
    HANDLE_ERROR(cudaEventSynchronize( stop ));
@@ -102,31 +103,18 @@ cudaThreadSynchronize();
 
    HANDLE_ERROR( cudaMemcpy(pixel_device, pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT, cudaMemcpyDeviceToHost) );
    fflush(stdout);
-  printf("%c\n",pos[0].x);
-
-   fflush(stdout);
+   
    for (int i=0; i < WINDOW_WIDTH; i++) {
 		for (int j=0; j < WINDOW_HEIGHT; j++) {
          //Looping over the Rays
-//     		img.pixel(i, j, pixel_device[j*WINDOW_WIDTH + i]);
-       /* pos[j*WINDOW_WIDTH+i].x = (unsigned char) pixel_device[j*WINDOW_WIDTH+i].r * 255;
-        pos[j*WINDOW_WIDTH+i].y = (unsigned char) pixel_device[j*WINDOW_WIDTH+i].g * 255;
-        pos[j*WINDOW_WIDTH+i].z = (unsigned char) pixel_device[j*WINDOW_WIDTH+i].b * 255;
-        pos[j*WINDOW_WIDTH+i].w = (unsigned char) pixel_device[j*WINDOW_WIDTH+i].f * 255;*/
-        pos[0].x = 0;
-	pos[0].y = 0;
-        pos[0].z = 0;
-        pos[0].w = 0;
-      }
+     		img.pixel(i, j, pixel_device[j*WINDOW_WIDTH + i]);
+		    }
   	}
-  printf("out\n");
-
-   fflush(stdout);
   	
 	// IMAGE OUTPUT
   	
     // write the targa file to disk
-  //	img.WriteTga((char *)"raytraced.tga", true); 
+  	img.WriteTga((char *)"raytraced.tga", true); 
   	// true to scale to max color, false to clamp to 1.0
 
     //FREE ALLOCS

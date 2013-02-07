@@ -4,7 +4,7 @@ CFLAGS= -O3 -c -lGL -lglut -DGL_GLEXT_PROTOTYPES -lGLU
 LDFLAGS= -O3  -lGL -lglut -DGL_GLEXT_PROTOTYPES -lGLU  
 CUDAFLAGS= -O3 -c -arch=sm_21
 
-ALL= callbacksPBO.o kernelPBO.o simpleGLmain.o simplePBO.o
+ALL= callbacksPBO.o cudaRayTrace.o simpleGLmain.o simplePBO.o
 
 all= $(ALL) RTRT
 
@@ -15,6 +15,9 @@ callbacksPBO.o:	callbacksPBO.cpp
 	$(CC) $(CFLAGS) -o $@ $<
 
 kernelPBO.o:	kernelPBO.cu
+	$(CC) $(CUDAFLAGS) -o $@ $<
+
+cudaRayTrace.o:	cudaRayTrace.cu
 	$(CC) $(CUDAFLAGS) -o $@ $<
 
 simpleGLmain.o:	simpleGLmain.cpp

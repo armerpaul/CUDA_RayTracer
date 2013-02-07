@@ -1,12 +1,32 @@
-﻿CPP = g++
-GFLAGS = -g
-NVCC = nvcc
-NVFLAGS = -gencode arch=compute_20,code=sm_20 -O3
-LIBS = -lcudart
-all: gpu
-gpu: Image.cpp cudaRayTrace.cu cudaRayTrace.h types.h
-	$(NVCC) $(NVFLAGS) -o gpu Image.cpp cudaRayTrace.cu $(LIBS)
-cpu: Image.cpp main.cpp VanExLib.h types.h
-	g++ -o cpu -g Image.cpp main.cpp 
+CC=nvcc
+LD=nvcc
+CFLAGS= -g -G -O3 -c -lGL -lglut -DGL_GLEXT_PROTOTYPES -lGLU 
+LDFLAGS= -g -G -O3  -lGL -lglut -DGL_GLEXT_PROTOTYPES -lGLU -lcudart
+CUDAFLAGS= -O3 -c -arch=sm_21
+
+ALL= callbacksPBO.o cudaRayTrace.o simpleGLmain.o simplePBO.o
+
+all= $(ALL) RTRT
+
+RT:	$(ALL)
+	$(CC) $(LDFLAGS) $(ALL) -o RTRT
+
+callbacksPBO.o:	callbacksPBO.cpp
+	$(CC) $(CFLAGS) -o $@ $<
+
+kernelPBO.o:	kernelPBO.cu
+	$(CC) $(CUDAFLAGS) -o $@ $<
+
+cudaRayTrace.o:	cudaRayTrace.cu
+	$(CC) $(CUDAFLAGS) -o $@ $< 
+
+
+simpleGLmain.o:	simpleGLmain.cpp
+	$(CC) $(CFLAGS) -o $@ $<
+
+simplePBO.o: simplePBO.cpp
+	$(CC) $(CFLAGS) -o $@ $<
+
 clean:
-	rm gpu *.tga
+	rm -rf core* *.o *.gch $(ALL) junk*
+
