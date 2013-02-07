@@ -20,7 +20,8 @@ unsigned int image_width = window_width;
 unsigned int image_height = window_height;
  
 extern "C" void launch_kernel(void* pos, unsigned int, unsigned int, float);
- 
+extern "C" void setup_scene(); 
+
 // variables
 GLuint pbo=0;
 GLuint textureID=0;
@@ -127,12 +128,16 @@ void initCuda()
      exit(EXIT_FAILURE);
   }
   cudaGLSetGLDevice( 0 );
-   
+  //Set Up scenary
+  setup_scene(); 
+  
   createPBO(&pbo);
   createTexture(&textureID,image_width,image_height);
  
   // Clean up on program exit
   atexit(cleanupCuda);
- 
+  
+
+
   runCuda();
 }

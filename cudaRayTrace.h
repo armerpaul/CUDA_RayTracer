@@ -12,7 +12,8 @@
 #define WINDOW_HEIGHT 1024
 #define SCREEN_DISTANCE -1
 #define NUM_WALLS 1
-#define NUM_SPHERES 100
+#define NUM_SPHERES 500
+#define NUM_PLANES 1
 
 #define AMBIENT .2
 #define DIFFUSE .6

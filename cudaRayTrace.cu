@@ -24,7 +24,7 @@ float theta;
 Camera* CameraInit();
 PointLight* LightInit();
 Sphere* CreateSpheres();
-
+Plane* CreatePlanes();
 __host__ __device__ Point CreatePoint(float x, float y, float z);
 __host__ __device__ color_t CreateColor(float r, float g, float b);
 
@@ -32,8 +32,9 @@ __global__ void CUDARayTrace(Camera * cam, Plane * f, PointLight *l, Sphere * s,
 
 __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l);
 __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, PointLight* l);
+__device__ color_t Shading(Ray r, Point p, Point normalVector, PointLight* l, color_t diffuse, color_t ambient, color_t specular); 
 __device__ float SphereRayIntersection(Sphere* s, Ray r);
-
+__device__ float PlaneRayIntersection(Plane* s, Ray r);
 
 static void HandleError( cudaError_t err, const char * file, int line)
 {
@@ -52,7 +53,7 @@ extern "C" void setup_scene()
    camera = CameraInit();
    light = LightInit();
    spheres = CreateSpheres();
-   planes = new Plane(); 
+   planes = CreatePlanes(); 
    HANDLE_ERROR( cudaMalloc((void**)&cam_d, sizeof(Camera)) );
    HANDLE_ERROR( cudaMalloc(&p_d, sizeof(Plane)) );
    HANDLE_ERROR( cudaMalloc(&l_d, sizeof(PointLight)) );
@@ -80,7 +81,7 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
    move.y = .001 * sin(theta += .01);
    move.x = .001 * cos(theta);
    move.z = .001 * sin(theta);
-   light->position.x -= 100 *sin(theta);	
+   light->position.x -= 2 *sin(theta);	
 
    camera->lookAt += move;
    //camera->lookUp += move;
@@ -143,7 +144,7 @@ PointLight* LightInit() {
    l->diffuse = CreateColor(0.6, 0.6, 0.6);
    l->specular = CreateColor(0.4, 0.4, 0.4);
 
-   l->position = CreatePoint(50, 0, -200);
+   l->position = CreatePoint(50, 50, -300);
 
    return l;
 }
@@ -199,6 +200,21 @@ Sphere* CreateSpheres() {
 /*
  * CUDA global function which performs ray tracing. Responsible for initializing and writing to output vector
  */
+
+
+Plane* CreatePlanes() {
+   Plane* planes = new Plane[NUM_PLANES]();
+   int num=0;
+   while (num < NUM_PLANES) {
+            planes[num].normal = CreatePoint(0,0,0) ;
+            planes[num].center = CreatePoint(0,0,-500);
+            planes[num].ambient = CreateColor(.5,.5,.5);
+            planes[num].diffuse =  CreateColor(.5,.5,.5);
+            planes[num].specular = CreateColor(1.,1.,1.);
+            num++;
+   }
+   return planes;
+}
 __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, uchar4 * pos)
 {
     float tanVal = tan(FOV/2);
@@ -239,8 +255,8 @@ __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, 
 __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
     color_t color = CreateColor(0, 0, 0); 
     float t, smallest;
-   	int i = 0, closestSphere = -1, sphereInShadow = false;
-    
+   	int i = 0, closestSphere = -1, closestPlane = -1,  inShadow = false;
+    Point normalVector;
     //FIND CLOSEST SPHERE ALONG RAY R
     while (i < NUM_SPHERES) {
       t = SphereRayIntersection(s + i, r);
@@ -251,30 +267,69 @@ __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
 		  }
       i++;
     }
-
+    
+i=0;
+    while (i < NUM_PLANES) {
+      t = PlaneRayIntersection(f + i, r);
+      if (t > 0 && (closestSphere < 0 || t < smallest)) {
+        smallest = t;
+        closestPlane = i;
+      }
+      i++;
+   }
+    
     //SETUP FOR SHADOW CALCULATIONS
     i = 0;
     Ray shadowRay;
     shadowRay.origin = CreatePoint(r.direction.x * smallest, r.direction.y * smallest, r.direction.z * smallest);
 
     shadowRay.direction = l->position - shadowRay.origin;
+    
+
 
     //DETERMINE IF SPHERE IS BLOCKING RAY FROM LIGHT TO SPHERE
-    if(closestSphere > -1)
+    if(closestSphere > -1 || closestPlane > -1)
     {
-      while (i <NUM_SPHERES){ 
+      while (i <NUM_SPHERES && !inShadow){ 
         t = SphereRayIntersection(s + i, shadowRay);
         if(i != closestSphere && t < 1 && t > 0){
-          sphereInShadow = true;
-          break;
+          inShadow = true;
+        }
+        i++;
+      }
+      i = 0;
+      while(i < NUM_PLANES && !inShadow){
+        t = PlaneRayIntersection(f + i, shadowRay);
+        if(i != closestPlane && t < 1 && t > 0){
+          inShadow = true;
         }
         i++;
       }
     }
-    //IF SHADOWED, ONLY SHOW AMBIENT LIGHTING
-    if(closestSphere > -1 && !sphereInShadow)
+    
+    if(closestPlane > -1 && !inShadow)
     {
-      return SphereShading(closestSphere, r, shadowRay.origin, s, l);
+      //plane closer than sphere
+	    normalVector = glm::normalize(f[closestPlane].normal-f[closestPlane].center);
+      return Shading(r, shadowRay.origin, normalVector, l, f[closestPlane].diffuse,
+      f[closestPlane].ambient,f[closestPlane].specular);
+    }
+    if(closestPlane > -1)
+    {
+      color.r = l->ambient.r * f[closestPlane].ambient.r;
+      color.g = l->ambient.g * f[closestPlane].ambient.g;
+      color.b = l->ambient.b * f[closestPlane].ambient.b;
+      return color;
+    }
+
+    //IF SHADOWED, ONLY SHOW AMBIENT LIGHTING
+    if(closestSphere > -1 && !inShadow)
+    {
+
+	    normalVector = glm::normalize((s[closestSphere].center)-shadowRay.origin);
+      return Shading(r, shadowRay.origin, normalVector, l, s[closestSphere].diffuse,
+      s[closestSphere].ambient,s[closestSphere].specular);
+      //return SphereShading(closestSphere, r, shadowRay.origin, s, l);
     }
     if(closestSphere > -1)
     {
@@ -284,6 +339,24 @@ __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
     }
     return color;
 }
+
+__device__ float PlaneRayIntersection(Plane *p, Ray r)
+{
+  float t;
+  Point N = p->normal - p->center;
+  float denominator = glm::dot(r.direction,N);
+  if(denominator!=0)
+  {
+    t = (glm::dot(p->center-r.origin,N)) / denominator;
+    return t;
+  }
+  else
+  {
+    return -1;
+  }
+}
+
+
 /*
  * Determines distance of intersection of Ray with Sphere, -1 returned if no intersection
  */
@@ -310,6 +383,56 @@ __device__ float SphereRayIntersection(Sphere* s, Ray r) {
     }
 	}
 	return -1;
+}
+__device__ color_t Shading(Ray r, Point p, Point normalVector,
+PointLight* l, color_t diffuse, color_t ambient, color_t specular) {
+	color_t a, d, s, total;
+	float NdotL, RdotV;
+	Point viewVector, lightVector, reflectVector;
+
+   //printf("r->%lf g->%lf b->%lf\n", l->ambient->r, l->ambient->g, l->ambient->b);
+   //printf("r->%lf g->%lf b->%lf\n", l->diffuse->r, l->diffuse->g, l->diffuse->b);
+   //printf("r->%lf g->%lf b->%lf\n\n", l->specular->r, l->specular->g, l->specular->b);
+
+	viewVector = glm::normalize((r.origin)-p);
+	
+	lightVector = glm::normalize((l->position) -p);
+	
+  NdotL = glm::dot(lightVector, normalVector);
+//  reflectVector = normalVector - lightVector;
+  reflectVector = (2.f *normalVector*NdotL) -lightVector;
+ // reflectVector = glm::reflect(-lightVector,normalVector);
+	/*
+  reflectTemp = 2 * NdotL;
+	reflectVector.x *= reflectTemp;
+	reflectVector.y *= reflectTemp;
+	reflectVector.z *= reflectTemp;
+	*/
+
+  a.r = l->ambient.r * ambient.r;
+	a.g = l->ambient.g * ambient.g;
+	a.b = l->ambient.b * ambient.b;
+  
+  // Diffuse
+  d.r = NdotL * l->diffuse.r * diffuse.r * (NdotL > 0);
+  d.g = NdotL * l->diffuse.g * diffuse.g * (NdotL > 0);
+  d.b = NdotL * l->diffuse.b * diffuse.b * (NdotL > 0);
+      
+  // Specular
+  RdotV = glm::pow(glm::dot(glm::normalize(reflectVector), viewVector), 100.f);
+  //RdotV = glm::dot(reflectVector,viewVector) *glm::dot(reflectVector,viewVector) ;
+  s.r = RdotV * l->specular.r * specular.r * (NdotL > 0) *(RdotV>0);
+  s.g = RdotV * l->specular.g * specular.g * (NdotL > 0) *(RdotV>0);
+  s.b = RdotV * l->specular.b * specular.b * (NdotL > 0) *(RdotV>0);
+/*	
+  total.r =  -s.r;
+	total.g =  -s.g;
+	total.b =  -s.b;*/
+  total.r = glm::min(1.f, a.r + d.r + s.r);
+	total.g = glm::min(1.f, a.g + d.g + s.g);
+	total.b = glm::min(1.f, a.b + d.b + s.b);
+  total.f = 1.f;
+	return total;
 }
 /*
  * Calculates Ambient, Diffuse, and Specular Shading for a single Ray
