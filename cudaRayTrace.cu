@@ -15,6 +15,12 @@
 #include "types.h"
 #include "cudaRayTrace.h"
 
+Camera * camera, *cam_d;
+PointLight *light, *l_d;
+Plane * planes, *p_d;
+Sphere * spheres, *s_d;
+float theta;
+
 Camera* CameraInit();
 PointLight* LightInit();
 Sphere* CreateSpheres();
@@ -22,17 +28,12 @@ Sphere* CreateSpheres();
 __host__ __device__ Point CreatePoint(float x, float y, float z);
 __host__ __device__ color_t CreateColor(float r, float g, float b);
 
-__global__ void CUDARayTrace(Camera * cam, Plane * f, PointLight *l, Sphere * s, color_t * pixelList);
+__global__ void CUDARayTrace(Camera * cam, Plane * f, PointLight *l, Sphere * s, uchar4 * position);
 
 __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l);
 __device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, PointLight* l);
 __device__ float SphereRayIntersection(Sphere* s, Ray r);
 
-
-
-/* 
- *  Handles CUDA errors, taking from provided sample code on clupo site
- */
 
 static void HandleError( cudaError_t err, const char * file, int line)
 {
@@ -43,6 +44,29 @@ static void HandleError( cudaError_t err, const char * file, int line)
 }
 #define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
 
+/* 
+ *  Handles CUDA errors, taking from provided sample code on clupo site
+ */
+extern "C" void setup_scene()
+{
+   camera = CameraInit();
+   light = LightInit();
+   spheres = CreateSpheres();
+   planes = new Plane(); 
+   HANDLE_ERROR( cudaMalloc((void**)&cam_d, sizeof(Camera)) );
+   HANDLE_ERROR( cudaMalloc(&p_d, sizeof(Plane)) );
+   HANDLE_ERROR( cudaMalloc(&l_d, sizeof(PointLight)) );
+   HANDLE_ERROR( cudaMalloc(&s_d,  sizeof(Sphere)*NUM_SPHERES));
+   
+
+   HANDLE_ERROR( cudaMemcpy(l_d, light, sizeof(PointLight), cudaMemcpyHostToDevice) );
+
+   HANDLE_ERROR( cudaMemcpy(cam_d, camera,sizeof(Camera), cudaMemcpyHostToDevice) );
+   HANDLE_ERROR( cudaMemcpy(p_d, planes,sizeof(Plane), cudaMemcpyHostToDevice) );
+   HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
+   theta = 0;
+}
+
 extern "C" void launch_kernel(uchar4* pos, unsigned int image_width, 
                   unsigned int image_height, float time)
 {
@@ -50,37 +74,23 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
   // set up for random num generator
   // srand ( time(NULL) );
    
-  // Image img(WINDOW_WIDTH, WINDOW_HEIGHT);
-   Camera* camera = CameraInit(), * cam_d;
-   PointLight* light = LightInit(), *l_d ;
-   color_t * pixel_device = NULL;
-   float aspectRatio = WINDOW_WIDTH; 
-   aspectRatio /= WINDOW_HEIGHT;
    cudaEvent_t start, stop; 
-   pixel_device = new color_t[WINDOW_WIDTH * WINDOW_HEIGHT];
-  	
-  	//SCENE SET UP
-  	// (floor)
-   Plane* floor = new Plane(), *f_d;
-   
-   
-   // (spheres)
-   Sphere* spheres = CreateSpheres(), *s_d;
+   Point move;
 
+   move.y = .001 * sin(theta += .01);
+   move.x = .001 * cos(theta);
+   move.z = .001 * sin(theta);
+   light->position.x -= 100 *sin(theta);	
 
+   camera->lookAt += move;
+   //camera->lookUp += move;
+   //camera->eye += move;
+   //SCENE SET UP
 
-   color_t * pixel_deviceD;
-   HANDLE_ERROR( cudaMalloc(&pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT) );
-
-   HANDLE_ERROR( cudaMalloc((void**)&cam_d, sizeof(Camera)) );
-   HANDLE_ERROR( cudaMalloc(&f_d, sizeof(Plane)) );
-   HANDLE_ERROR( cudaMalloc(&l_d, sizeof(PointLight)) );
-   HANDLE_ERROR( cudaMalloc(&s_d,  sizeof(Sphere)*NUM_SPHERES));
-   
    HANDLE_ERROR( cudaMemcpy(l_d, light, sizeof(PointLight), cudaMemcpyHostToDevice) );
+
    HANDLE_ERROR( cudaMemcpy(cam_d, camera,sizeof(Camera), cudaMemcpyHostToDevice) );
-   HANDLE_ERROR( cudaMemcpy(f_d, floor,sizeof(Plane), cudaMemcpyHostToDevice) );
-   HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
+
    
    //CUDA Timing 
    HANDLE_ERROR( cudaEventCreate(&start) );
@@ -90,7 +100,7 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
    // The Kernel Call
    dim3 gridSize((WINDOW_WIDTH+15)/16, (WINDOW_HEIGHT+15)/16);
    dim3 blockSize(16,16);
-   CUDARayTrace<<< gridSize, blockSize  >>>(cam_d, f_d, l_d, s_d, pixel_deviceD);
+   CUDARayTrace<<< gridSize, blockSize  >>>(cam_d, p_d, l_d, s_d, pos);
 cudaThreadSynchronize();
    // Coming Back
    HANDLE_ERROR(cudaEventRecord( stop, 0));
@@ -98,39 +108,12 @@ cudaThreadSynchronize();
    float elapsedTime;
    HANDLE_ERROR(cudaEventElapsedTime( &elapsedTime, start, stop));
 
-   printf("GPU computation time: %.1f ms\n", elapsedTime);
+   //printf("GPU computation time: %.1f ms\n", elapsedTime);
 
-   HANDLE_ERROR( cudaMemcpy(pixel_device, pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT, cudaMemcpyDeviceToHost) );
-   fflush(stdout);
-  printf("%c\n",pos[0].x);
+   //HANDLE_ERROR( cudaMemcpy(pixel_device, pixel_deviceD,sizeof(color_t) * WINDOW_WIDTH * WINDOW_HEIGHT, cudaMemcpyDeviceToHost) );
+   //fflush(stdout);
 
-   fflush(stdout);
-   for (int i=0; i < WINDOW_WIDTH; i++) {
-		for (int j=0; j < WINDOW_HEIGHT; j++) {
-         //Looping over the Rays
-//     		img.pixel(i, j, pixel_device[j*WINDOW_WIDTH + i]);
-       /* pos[j*WINDOW_WIDTH+i].x = (unsigned char) pixel_device[j*WINDOW_WIDTH+i].r * 255;
-        pos[j*WINDOW_WIDTH+i].y = (unsigned char) pixel_device[j*WINDOW_WIDTH+i].g * 255;
-        pos[j*WINDOW_WIDTH+i].z = (unsigned char) pixel_device[j*WINDOW_WIDTH+i].b * 255;
-        pos[j*WINDOW_WIDTH+i].w = (unsigned char) pixel_device[j*WINDOW_WIDTH+i].f * 255;*/
-        pos[0].x = 0;
-	pos[0].y = 0;
-        pos[0].z = 0;
-        pos[0].w = 0;
-      }
-  	}
-  printf("out\n");
-
-   fflush(stdout);
-  	
-	// IMAGE OUTPUT
-  	
-    // write the targa file to disk
-  //	img.WriteTga((char *)"raytraced.tga", true); 
-  	// true to scale to max color, false to clamp to 1.0
-
-    //FREE ALLOCS
-    cudaFree(pixel_deviceD);
+   // cudaFree(pixel_deviceD);
 } 
 
 /*
@@ -201,7 +184,7 @@ Sphere* CreateSpheres() {
             randg = (rand()%1000) /1000.f ;
             randb = (rand()%1000) /1000.f ;
             spheres[num].radius = 11. - rand() % 10;
-            spheres[num].center = CreatePoint(rand() % 200,
+            spheres[num].center = CreatePoint(-100 + rand() % 200,
                                               100 - rand() % 200,
                                               -200. - rand() %200);
             spheres[num].ambient = CreateColor(randr, randg, randb);
@@ -216,7 +199,7 @@ Sphere* CreateSpheres() {
 /*
  * CUDA global function which performs ray tracing. Responsible for initializing and writing to output vector
  */
-__global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, color_t * pixelList)
+__global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, uchar4 * pos)
 {
     float tanVal = tan(FOV/2);
 
@@ -233,8 +216,8 @@ __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, 
     //INIT RAY VALUES
 	  r.origin = cam->eye;
     r.direction = cam->lookAt;
-    r.direction.y = tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
-    r.direction.x = -1 * WINDOW_WIDTH / WINDOW_HEIGHT * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
+    r.direction.y += tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
+    r.direction.x += -1 * WINDOW_WIDTH / WINDOW_HEIGHT * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
 
 
     //RAY TRACE
@@ -244,10 +227,10 @@ __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, 
     int index = row *WINDOW_WIDTH + col;
     
     //PLACE DATA IN INDEX
-    pixelList[index].r = returnColor.r;
-    pixelList[index].g = returnColor.g;
-    pixelList[index].b = returnColor.b;
-    pixelList[index].f = returnColor.f;
+    pos[index].x = 0xFF * returnColor.r ;
+    pos[index].y = 0xFF * returnColor.g;
+    pos[index].z = 0xFF * returnColor.b;
+    pos[index].w = 0xFF * returnColor.f;
     
 }
 /*

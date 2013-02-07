@@ -1,7 +1,7 @@
 CC=nvcc
 LD=nvcc
-CFLAGS= -g -G -O3 -c -lGL -lglut -DGL_GLEXT_PROTOTYPES -lGLU 
-LDFLAGS= -g -G -O3  -lGL -lglut -DGL_GLEXT_PROTOTYPES -lGLU -lcudart
+CFLAGS= -O3 -c -lGL -lglut -DGL_GLEXT_PROTOTYPES -lGLU 
+LDFLAGS= -O3  -lGL -lglut -DGL_GLEXT_PROTOTYPES -lGLU -lcudart
 CUDAFLAGS= -O3 -c -arch=sm_21
 
 ALL= callbacksPBO.o cudaRayTrace.o simpleGLmain.o simplePBO.o
