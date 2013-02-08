@@ -80,7 +80,7 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
 
    move.y = .001 * sin(theta += .01);
    move.x = .001 * cos(theta);
-   move.z = .001 * sin(theta);
+   move.z += .01;
    light->position.x -= 2 *sin(theta);	
 
    camera->lookAt += move;
@@ -205,14 +205,32 @@ Sphere* CreateSpheres() {
 Plane* CreatePlanes() {
    Plane* planes = new Plane[NUM_PLANES]();
    int num=0;
-   while (num < NUM_PLANES) {
+   /*while (num < NUM_PLANES) {
+
             planes[num].normal = CreatePoint(0,0,0) ;
             planes[num].center = CreatePoint(0,0,-500);
             planes[num].ambient = CreateColor(.5,.5,.5);
             planes[num].diffuse =  CreateColor(.5,.5,.5);
             planes[num].specular = CreateColor(1.,1.,1.);
             num++;
-   }
+   }*/
+
+            planes[2].normal = CreatePoint(100,0,0) ;
+            planes[2].center = CreatePoint(-100,0,0);
+            planes[2].ambient = CreateColor(.1,.5,.5);
+            planes[2].diffuse =  CreateColor(.5,.5,.5);
+            planes[2].specular = CreateColor(1.,1.,1.);
+
+            planes[1].normal = CreatePoint(-100,0,0) ;
+            planes[1].center = CreatePoint(100,0,0);
+            planes[1].ambient = CreateColor(.9,.5,.5);
+            planes[1].diffuse =  CreateColor(.5,.5,.5);
+            planes[1].specular = CreateColor(1.,1.,1.);
+            planes[0].normal = CreatePoint(0,0,0) ;
+            planes[0].center = CreatePoint(0,0,-500);
+            planes[0].ambient = CreateColor(.5,.5,.5);
+            planes[0].diffuse =  CreateColor(.5,.5,.5);
+            planes[0].specular = CreateColor(1.,1.,1.);
    return planes;
 }
 __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, uchar4 * pos)
