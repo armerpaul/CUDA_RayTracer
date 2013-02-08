@@ -50,6 +50,7 @@ static void HandleError( cudaError_t err, const char * file, int line)
  */
 extern "C" void setup_scene()
 {
+	cudaDeviceSetCacheConfig( cudaFuncCachePreferL1);
    camera = CameraInit();
    light = LightInit();
    spheres = CreateSpheres();
@@ -78,9 +79,9 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
    cudaEvent_t start, stop; 
    Point move;
 
-   move.y = .001 * sin(theta += .01);
-   move.x = .001 * cos(theta);
-   move.z += .01;
+  // move.y = .001 * sin(theta += .01);
+  // move.x = .001 * cos(theta);
+  // move.z += .0001;
    light->position.x -= 2 *sin(theta);	
 
    camera->lookAt += move;
@@ -180,7 +181,7 @@ Sphere* CreateSpheres() {
    Sphere* spheres = new Sphere[NUM_SPHERES]();
    float randr, randg, randb;
    int num = 0;
-   while (num < NUM_SPHERES) {
+   while (num < NUM_SPHERES-1) {
             randr = (rand()%1000) /1000.f ;
             randg = (rand()%1000) /1000.f ;
             randb = (rand()%1000) /1000.f ;
@@ -193,6 +194,12 @@ Sphere* CreateSpheres() {
             spheres[num].specular = CreateColor(1., 1., 1.);
             num++;
    }
+   
+   spheres[NUM_SPHERES-1].radius=5;
+   spheres[NUM_SPHERES-1].center=light->position;
+   spheres[NUM_SPHERES-1].ambient=CreateColor(1,0,0);
+   spheres[NUM_SPHERES-1].diffuse=CreateColor(1,1,1);
+   spheres[NUM_SPHERES-1].specular=CreateColor(1,1,1);
 
    return spheres;
 
@@ -215,19 +222,19 @@ Plane* CreatePlanes() {
             num++;
    }*/
 
-            planes[2].normal = CreatePoint(100,0,0) ;
+       /*     planes[2].normal = CreatePoint(100,0,0) ;
             planes[2].center = CreatePoint(-100,0,0);
             planes[2].ambient = CreateColor(.1,.5,.5);
             planes[2].diffuse =  CreateColor(.5,.5,.5);
             planes[2].specular = CreateColor(1.,1.,1.);
 
-            planes[1].normal = CreatePoint(-100,0,0) ;
-            planes[1].center = CreatePoint(100,0,0);
+            planes[1].normal = CreatePoint(-100,0,-100) ;
+            planes[1].center = CreatePoint(0,0,0);
             planes[1].ambient = CreateColor(.9,.5,.5);
             planes[1].diffuse =  CreateColor(.5,.5,.5);
-            planes[1].specular = CreateColor(1.,1.,1.);
-            planes[0].normal = CreatePoint(0,0,0) ;
-            planes[0].center = CreatePoint(0,0,-500);
+            planes[1].specular = CreateColor(1.,1.,1.);*/
+            planes[0].normal = CreatePoint(-100,0,0) ;
+            planes[0].center = CreatePoint(0,-500,-500);
             planes[0].ambient = CreateColor(.5,.5,.5);
             planes[0].diffuse =  CreateColor(.5,.5,.5);
             planes[0].specular = CreateColor(1.,1.,1.);
@@ -302,15 +309,14 @@ i=0;
     shadowRay.origin = CreatePoint(r.direction.x * smallest, r.direction.y * smallest, r.direction.z * smallest);
 
     shadowRay.direction = l->position - shadowRay.origin;
-    
-
 
     //DETERMINE IF SPHERE IS BLOCKING RAY FROM LIGHT TO SPHERE
     if(closestSphere > -1 || closestPlane > -1)
     {
-      while (i <NUM_SPHERES && !inShadow){ 
+      while (i <NUM_SPHERES-1 && !inShadow){ 
         t = SphereRayIntersection(s + i, shadowRay);
-        if(i != closestSphere && t < 1 && t > 0){
+        if(i != closestSphere/* && t < 1*/ && t > 0){
+//	printf("%f\n",t);
           inShadow = true;
         }
         i++;
@@ -337,6 +343,7 @@ i=0;
       color.r = l->ambient.r * f[closestPlane].ambient.r;
       color.g = l->ambient.g * f[closestPlane].ambient.g;
       color.b = l->ambient.b * f[closestPlane].ambient.b;
+      return CreateColor(1,1,1);
       return color;
     }
 
@@ -344,10 +351,9 @@ i=0;
     if(closestSphere > -1 && !inShadow)
     {
 
-	    normalVector = glm::normalize((s[closestSphere].center)-shadowRay.origin);
+	    normalVector = glm::normalize(shadowRay.origin-(s[closestSphere].center));
       return Shading(r, shadowRay.origin, normalVector, l, s[closestSphere].diffuse,
       s[closestSphere].ambient,s[closestSphere].specular);
-      //return SphereShading(closestSphere, r, shadowRay.origin, s, l);
     }
     if(closestSphere > -1)
     {
@@ -366,7 +372,10 @@ __device__ float PlaneRayIntersection(Plane *p, Ray r)
   if(denominator!=0)
   {
     t = (glm::dot(p->center-r.origin,N)) / denominator;
+   // if (t>100000)
+     // return -1;
     return t;
+//    return glm::min(t,100000.f);
   }
   else
   {

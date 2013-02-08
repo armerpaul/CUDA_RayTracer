@@ -1,5 +1,5 @@
 // simplePBO.cpp (Rob Farber)
-    
+#include "cudaRayTrace.h"
 // includes
 #include <GL/glut.h>
 #include <stdio.h>
@@ -16,8 +16,8 @@ extern unsigned int window_width;
 extern unsigned int window_height;
  
 // constants (the following should be a const in a header file)
-unsigned int image_width = window_width;
-unsigned int image_height = window_height;
+unsigned int image_width = WINDOW_WIDTH;
+unsigned int image_height = WINDOW_HEIGHT;
  
 extern "C" void launch_kernel(void* pos, unsigned int, unsigned int, float);
 extern "C" void setup_scene(); 

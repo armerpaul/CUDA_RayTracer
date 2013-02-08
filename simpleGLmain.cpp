@@ -1,5 +1,5 @@
 // simpleGLmain.cpp (Rob Farber)
-
+#include "cudaRayTrace.h"
 // includes
 #include <GL/glut.h>
 #include <GL/freeglut.h>
@@ -20,8 +20,8 @@ extern void mouse(int button, int state, int x, int y);
 extern void motion(int x, int y);
 
 // GLUT specific variables
-unsigned int window_width = 1024;
-unsigned int window_height = 1024;
+unsigned int window_width = WINDOW_WIDTH;
+unsigned int window_height = WINDOW_HEIGHT;
 
 
 // Forward declarations of GL functionality
