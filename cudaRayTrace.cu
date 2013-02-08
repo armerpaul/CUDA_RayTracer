@@ -65,6 +65,8 @@ extern "C" void setup_scene()
 
    HANDLE_ERROR( cudaMemcpy(cam_d, camera,sizeof(Camera), cudaMemcpyHostToDevice) );
    HANDLE_ERROR( cudaMemcpy(p_d, planes,sizeof(Plane)*NUM_PLANES, cudaMemcpyHostToDevice) );
+
+
    HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
    theta = 0;
 }
@@ -79,9 +81,9 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
    cudaEvent_t start, stop; 
    Point move;
 
-  // move.y = .001 * sin(theta += .01);
-  // move.x = .001 * cos(theta);
-  // move.z += .0001;
+   move.y = .001 * sin(theta += .01);
+   move.x = .001 * cos(theta);
+   move.z += .0001;
    light->position.x -= 2 *sin(theta);	
 
    camera->lookAt += move;
@@ -89,11 +91,18 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
    //camera->eye += move;
    //SCENE SET UP
 
+   
+   spheres[NUM_SPHERES-1].radius=5;
+   spheres[NUM_SPHERES-1].center=light->position;
+   spheres[NUM_SPHERES-1].ambient=CreateColor(1,0,0);
+   spheres[NUM_SPHERES-1].diffuse=CreateColor(1,1,1);
+   spheres[NUM_SPHERES-1].specular=CreateColor(1,1,1);
+   
    HANDLE_ERROR( cudaMemcpy(l_d, light, sizeof(PointLight), cudaMemcpyHostToDevice) );
 
    HANDLE_ERROR( cudaMemcpy(cam_d, camera,sizeof(Camera), cudaMemcpyHostToDevice) );
-
    
+   HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
    //CUDA Timing 
    HANDLE_ERROR( cudaEventCreate(&start) );
    HANDLE_ERROR( cudaEventCreate(&stop) );
@@ -195,6 +204,7 @@ Sphere* CreateSpheres() {
             num++;
    }
    
+
    spheres[NUM_SPHERES-1].radius=5;
    spheres[NUM_SPHERES-1].center=light->position;
    spheres[NUM_SPHERES-1].ambient=CreateColor(1,0,0);
@@ -310,7 +320,7 @@ __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
 i=0;
     while (i < NUM_PLANES) {
       t = PlaneRayIntersection(f + i, r);
-      if (t > 0 && (closestSphere < 0 || t < smallest)) {
+      if (t > 0 && ( (closestSphere < 0 && closestPlane < 0) || t < smallest)) {//POSSIBLE LOGIC FIX CLOSESTSPHERE >1
         smallest = t;
         closestSphere = -1;
         closestPlane = i;
@@ -387,8 +397,8 @@ __device__ float PlaneRayIntersection(Plane *p, Ray r)
   if(denominator!=0)
   {
     t = (glm::dot(p->center-r.origin,N)) / denominator;
-   // if (t>1000)
-   //   return -1;
+    if (t>100000)
+      return -1;
     return t;
 //    return glm::min(t,100000.f);
   }
