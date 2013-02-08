@@ -13,7 +13,7 @@
 #define SCREEN_DISTANCE -1
 #define NUM_WALLS 1
 #define NUM_SPHERES 5 
-#define NUM_PLANES 1 
+#define NUM_PLANES 5 
 
 #define AMBIENT .2
 #define DIFFUSE .6
