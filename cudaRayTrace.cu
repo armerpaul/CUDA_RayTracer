@@ -90,20 +90,25 @@ extern "C" void ijklMove(unsigned char key)
       camera->theta_x-=.01;
       break;
     case('j'):
-      camera->theta_y+=.01;
+      camera->theta_y-=.01;
       break;
     case('l'):
-      camera->theta_y-=.01;
+      camera->theta_y+=.01;
       break;
    }
    sin_theta_x = sin(camera->theta_x);
    sin_theta_y = sin(camera->theta_y);
    cos_theta_x = cos(camera->theta_x);
    cos_theta_y = cos(camera->theta_y);
-
-   camera->lookAt = camera->eye + CreatePoint(sin_theta_y,cos_theta_x, sin_theta_x - cos_theta_y - 1);
-   camera->lookUp = camera->eye + CreatePoint(0,sin_theta_x + 1, -1 * cos_theta_x);
-   camera->lookRight = camera->eye + CreatePoint(1 + cos_theta_y , 0 , sin_theta_y);
+   printf("Sinx = %f, Siny = %f,Cosx = %f,Cosy = %f\n", sin_theta_x, sin_theta_y, cos_theta_x, cos_theta_y);
+   camera->lookAt = camera->eye + glm::normalize(CreatePoint(sin_theta_y ,sin_theta_x , -1*cos_theta_y*cos_theta_x));
+   camera->lookRight = camera->eye + glm::normalize(CreatePoint(cos_theta_y , 0 , -1* sin_theta_y));
+   camera->lookUp = camera->eye + glm::normalize(CreatePoint(0,cos_theta_x, sin_theta_x));
+   
+   //camera->lookAt = camera->eye + glm::normalize(CreatePoint(1 - cos_theta_y, sin_theta_x, sin_theta_y - cos_theta_x));
+   //camera->lookUp = camera->eye +  glm::normalize(CreatePoint(0,cos_theta_x, sin_theta_x));
+   //camera->lookRight = camera->eye + glm::normalize(CreatePoint(cos_theta_y , 0 , -1* sin_theta_y));
+   printf("%f,%f, %f,\n", camera->lookAt.x, camera->lookAt.y, camera->lookAt.z);
 }
 
 
@@ -114,16 +119,16 @@ extern "C" void wasdMove(unsigned char key)
    Point move;
    switch(key){
     case('w'):
-      move = .01f * glm::normalize(camera->lookAt - camera->eye);
+      move = .05f * glm::normalize(camera->lookAt - camera->eye);
       break; 
     case('s'):
-      move = .01f * glm::normalize(camera->eye - camera->lookAt);
+      move = .05f * glm::normalize(camera->eye - camera->lookAt);
       break;
     case('a'):
-      move = .01f * glm::normalize(camera->eye - camera->lookRight);
+      move = .05f * glm::normalize(camera->eye - camera->lookRight);
       break;
     case('d'):
-      move = .01f * glm::normalize(camera->lookRight - camera->eye);
+      move = .05f * glm::normalize(camera->lookRight - camera->eye);
       break;
    }
    camera->lookAt += move;
@@ -255,7 +260,7 @@ Sphere* CreateSpheres() {
             spheres[num].radius = 11. - rand() % 10;
             spheres[num].center = CreatePoint(-100 + rand() % 200,
                                               100 - rand() % 200,
-                                              -200. - rand() %200);
+                                              100. - rand() %200);
             spheres[num].ambient = CreateColor(randr, randg, randb);
             spheres[num].diffuse = CreateColor(randr, randg, randb);
             spheres[num].specular = CreateColor(1., 1., 1.);
