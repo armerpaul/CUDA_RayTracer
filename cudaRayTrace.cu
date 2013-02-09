@@ -50,7 +50,7 @@ static void HandleError( cudaError_t err, const char * file, int line)
  */
 extern "C" void setup_scene()
 {
-	cudaDeviceSetCacheConfig( cudaFuncCachePreferL1);
+	 HANDLE_ERROR( cudaDeviceSetCacheConfig(cudaFuncCachePreferL1));
    camera = CameraInit();
    light = LightInit();
    spheres = CreateSpheres();
@@ -71,6 +71,66 @@ extern "C" void setup_scene()
    theta = 0;
 }
 
+extern "C" void ijklMove(unsigned char key)
+{
+   //glm::mat4 mvp = glm::lookAt(camera->eye, camera->lookAt, camera->lookUp);
+   //GLfloat angle = (GLFloat)(10);
+   //glm::mat4 View = glm::mat4(1.);
+//   View = glm::rotate(View, angle * -1.0f, glm::vec3(1.f, 0.f, 0.f));
+   //View = glm::rotate(View, angle * 0.5f, glm::vec3(0.f, 1.f, 0.f));
+//   View = glm::rotate(View, angle * 0.5f, glm::vec3(0.f, 0.f, 1.f)); 
+  //mvp = view * mvp;*/
+  float sin_theta_x, cos_theta_x, sin_theta_y,cos_theta_y;
+
+  switch(key){
+    case('i'):
+      camera->theta_x+=.01;
+      break; 
+    case('k'):
+      camera->theta_x-=.01;
+      break;
+    case('j'):
+      camera->theta_y+=.01;
+      break;
+    case('l'):
+      camera->theta_y-=.01;
+      break;
+   }
+   sin_theta_x = sin(camera->theta_x);
+   sin_theta_y = sin(camera->theta_y);
+   cos_theta_x = cos(camera->theta_x);
+   cos_theta_y = cos(camera->theta_y);
+
+   camera->lookAt = camera->eye + CreatePoint(sin_theta_y,cos_theta_x, sin_theta_x - cos_theta_y - 1);
+   camera->lookUp = camera->eye + CreatePoint(0,sin_theta_x + 1, -1 * cos_theta_x);
+   camera->lookRight = camera->eye + CreatePoint(1 + cos_theta_y , 0 , sin_theta_y);
+}
+
+
+
+extern "C" void wasdMove(unsigned char key)
+{
+
+   Point move;
+   switch(key){
+    case('w'):
+      move = .01f * glm::normalize(camera->lookAt - camera->eye);
+      break; 
+    case('s'):
+      move = .01f * glm::normalize(camera->eye - camera->lookAt);
+      break;
+    case('a'):
+      move = .01f * glm::normalize(camera->eye - camera->lookRight);
+      break;
+    case('d'):
+      move = .01f * glm::normalize(camera->lookRight - camera->eye);
+      break;
+   }
+   camera->lookAt += move;
+   camera->lookUp += move;
+   camera->lookRight += move;
+   camera->eye += move;
+}
 extern "C" void launch_kernel(uchar4* pos, unsigned int image_width, 
                   unsigned int image_height, float time)
 {
@@ -81,12 +141,12 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
    cudaEvent_t start, stop; 
    Point move;
 
-   move.y = .001 * sin(theta += .01);
-   move.x = .001 * cos(theta);
-   move.z += .0001;
-   light->position.x -= 2 *sin(theta);	
+ //  move.y = .001 * sin(theta += .01);
+ //  move.x = .001 * cos(theta);
+ //  move.z += .0001;
+   light->position.x -= 2 *sin(theta += .01);	
 
-   camera->lookAt += move;
+ //  camera->lookAt += move;
    //camera->lookUp += move;
    //camera->eye += move;
    //SCENE SET UP
@@ -137,11 +197,9 @@ Camera* CameraInit() {
    c->eye = CreatePoint(0, 0, 0);//(X,Y,Z)
    c->lookAt = CreatePoint(0, 0, SCREEN_DISTANCE);
    c->lookUp = CreatePoint(0, 1, 0);
-
-   c->u = CreatePoint(1, 0, 0);
-   c->v = CreatePoint(0, 1, 0);
-   c->w = CreatePoint(0, 0, 1);
-   
+   c->lookRight = CreatePoint(1, 0, 0);
+   c->theta_x = 0;
+   c->theta_y = 0;
    return c;
 }
 /*

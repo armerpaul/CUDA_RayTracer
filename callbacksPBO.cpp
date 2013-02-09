@@ -22,6 +22,8 @@ extern void moveDown();
 extern void moveLeft();
 extern void moveRight();
 
+extern "C" void wasdMove(unsigned char key);
+extern "C" void ijklMove(unsigned char key);
 // The user must create the following routines:
 void runCuda();
 
@@ -73,8 +75,19 @@ void keyboard(unsigned char key, int x, int y)
    case(27) :
       exit(0);
       break;
+   case('w'):
+   case('a'):
+   case('s'):
+   case('d'):
+     wasdMove(key);
+     break;
+   case('i'):
+   case('k'):
+   case('j'):
+   case('l'):
+     ijklMove(key);
+     break;
    }
-
    // indicate the display must be redrawn
    glutPostRedisplay();
 }

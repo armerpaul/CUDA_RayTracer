@@ -28,8 +28,8 @@ typedef struct {
 } Plane;
 
 typedef struct {
-   Point eye, lookAt, lookUp;
-   Point u, v, w;
+   Point eye, lookAt, lookUp, lookRight;
+  float theta_x, theta_y;
 } Camera;
 
 typedef struct {
