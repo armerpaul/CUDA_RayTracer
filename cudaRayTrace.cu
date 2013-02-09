@@ -15,6 +15,9 @@
 #include "types.h"
 #include "cudaRayTrace.h"
 
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtx/rotate_vector.hpp"
+
 Camera * camera, *cam_d;
 PointLight *light, *l_d;
 Plane * planes, *p_d;
@@ -73,14 +76,14 @@ extern "C" void setup_scene()
 
 extern "C" void ijklMove(unsigned char key)
 {
-   //glm::mat4 mvp = glm::lookAt(camera->eye, camera->lookAt, camera->lookUp);
+   glm::mat4 mvp = glm::lookAt(camera->eye, camera->lookAt, camera->lookUp);
    //GLfloat angle = (GLFloat)(10);
    //glm::mat4 View = glm::mat4(1.);
 //   View = glm::rotate(View, angle * -1.0f, glm::vec3(1.f, 0.f, 0.f));
    //View = glm::rotate(View, angle * 0.5f, glm::vec3(0.f, 1.f, 0.f));
 //   View = glm::rotate(View, angle * 0.5f, glm::vec3(0.f, 0.f, 1.f)); 
   //mvp = view * mvp;*/
-  float sin_theta_x, cos_theta_x, sin_theta_y,cos_theta_y;
+/*  float sin_theta_x, cos_theta_x, sin_theta_y,cos_theta_y;
 
   switch(key){
     case('i'):
@@ -103,7 +106,8 @@ extern "C" void ijklMove(unsigned char key)
 
    camera->lookAt = camera->eye + CreatePoint(sin_theta_y,cos_theta_x, sin_theta_x - cos_theta_y - 1);
    camera->lookUp = camera->eye + CreatePoint(0,sin_theta_x + 1, -1 * cos_theta_x);
-   camera->lookRight = camera->eye + CreatePoint(1 + cos_theta_y , 0 , sin_theta_y);
+   camera->lookRight = camera->eye + CreatePoint(1 + cos_theta_y , 0 ,
+   sin_theta_y);*/
 }
 
 
