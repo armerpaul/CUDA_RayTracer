@@ -82,7 +82,7 @@ extern "C" void ijklMove(unsigned char key)
 //   View = glm::rotate(View, angle * 0.5f, glm::vec3(0.f, 0.f, 1.f)); 
   //mvp = view * mvp;*/
   float sin_theta_x, cos_theta_x, sin_theta_y,cos_theta_y;
-  //float cosxy, zval;
+  float cosxy, zval;
   switch(key){
     case('i'):
       camera->theta_x+=.05;
@@ -103,10 +103,12 @@ extern "C" void ijklMove(unsigned char key)
    cos_theta_y = cos(camera->theta_y);
    //printf("Sinx = %f, Siny = %f,Cosx = %f,Cosy = %f\n", sin_theta_x, sin_theta_y, cos_theta_x, cos_theta_y);
    
-   //cosxy = cos_theta_x * cos_theta_y;
-   //zval = -1* cosxy / abs(cosxy) * sqrt(abs(cosxy));
+   cosxy = cos_theta_x * cos_theta_y;
+   zval = -1* cosxy / abs(cosxy) * sqrt(abs(cosxy));
    
+   //camera->lookAt = glm::normalize(CreatePoint(sin_theta_y ,sin_theta_x , zval));
    camera->lookAt = glm::normalize(CreatePoint(sin_theta_y ,sin_theta_x , -1*cos_theta_x*cos_theta_y));
+
    camera->lookRight = glm::normalize(CreatePoint(cos_theta_y , 0 , sin_theta_y));
    camera->lookUp = glm::normalize(CreatePoint(0,cos_theta_x, sin_theta_x));
    
@@ -128,16 +130,16 @@ extern "C" void wasdMove(unsigned char key)
    Point move;
    switch(key){
     case('w'):
-      move = .2f * camera->lookAt;
+      move = 10.f * camera->lookAt;
       break; 
     case('s'):
-      move = -.2f *camera->lookAt;
+      move = -10.f *camera->lookAt;
       break;
     case('a'):
-      move = -.2f * camera->lookRight;
+      move = -10.f * camera->lookRight;
       break;
     case('d'):
-      move = .2f * camera->lookRight;
+      move = 10.f * camera->lookRight;
       break;
    }
    camera->eye += move;
@@ -246,7 +248,7 @@ PointLight* LightInit() {
    l->diffuse = CreateColor(0.6, 0.6, 0.6);
    l->specular = CreateColor(0.4, 0.4, 0.4);
 
-   l->position = CreatePoint(50, 50, -300);
+   l->position = CreatePoint(50, 50, -400);
 
    return l;
 }
@@ -342,7 +344,10 @@ Plane* CreatePlanes() {
             planes[4].normal = CreatePoint(-1,0,0) ;
             planes[4].center = CreatePoint(1400,0, 0);
             planes[4].ambient = planes[4].diffuse = planes[4].specular = CreateColor(1,1,1);
-   
+  
+            planes[5].normal = CreatePoint(0,0,-1) ;
+            planes[5].center = CreatePoint(0,0, 1000);
+            planes[5].ambient = planes[5].diffuse = planes[5].specular = CreateColor(1,1,1);
    return planes;
 }
 __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, uchar4 * pos)
@@ -366,6 +371,7 @@ __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, 
     r.direction = cam->lookAt;
     r.direction += (rvalx * cam->lookRight);
     r.direction += (rvaly * cam->lookUp);
+    r.direction = glm::normalize(r.direction);
     //r.direction.y += tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
     //r.direction.x += -1 * WINDOW_WIDTH / WINDOW_HEIGHT * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
 
@@ -418,9 +424,9 @@ i=0;
     i = 0;
     Ray shadowRay;
     
-    r.direction += r.origin;//Smallest needs to be calculated differently
+    //r.direction += r.origin;//Smallest needs to be calculated differently
     shadowRay.origin = CreatePoint(r.direction.x * smallest, r.direction.y * smallest, r.direction.z * smallest);
-
+    shadowRay.origin += r.origin;
     shadowRay.direction = l->position - shadowRay.origin;
    
     //DETERMINE IF SPHERE IS BLOCKING RAY FROM LIGHT TO SPHERE
@@ -482,7 +488,7 @@ i=0;
 __device__ float PlaneRayIntersection(Plane *p, Ray r)
 {
   float t;
-  Point N = p->normal- p->center;
+  Point N = glm::normalize(p->normal);
   float denominator = glm::dot(r.direction,N);
   if(denominator!=0)
   {
@@ -501,15 +507,17 @@ __device__ float PlaneRayIntersection(Plane *p, Ray r)
 
 /*
  * Determines distance of intersection of Ray with Sphere, -1 returned if no intersection
+ * http://sci.tuomastonteri.fi/programming/sse/example3
  */
 __device__ float SphereRayIntersection(Sphere* s, Ray r) {
 	  float a, b, c, d, t1, t2;
     
     a = glm::dot((r.direction), (r.direction));
-    b = glm::dot((r.origin)- (s->center),(r.direction));
-    c = glm::dot((r.origin)-(s->center), (r.origin)- (s->center))
+
+    b = 2.0f * glm::dot((r.origin)-(s->center),(r.direction));
+    c = glm::dot((s->center),(s->center)) +glm::dot(r.origin,r.origin) -2.0f*glm::dot(r.origin, s->center)
             - (s->radius * s->radius);
-    d = (b * b) - (a * c);
+    d = (b * b) - 4.0f * (a * c);
     
     if (d >= 0) {
 
@@ -517,10 +525,10 @@ __device__ float SphereRayIntersection(Sphere* s, Ray r) {
 		t2 = (-1 * b + sqrt(d)) / (a);
     
     if (t2 > t1 && t1 > 0) {
-			return t1;
+			return t1/2;
 		
     } else if (t2 > 0) {
-			return t2;
+			return t2/2;
 		
     }
 	}
