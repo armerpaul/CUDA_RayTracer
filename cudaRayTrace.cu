@@ -67,6 +67,7 @@ extern "C" void setup_scene()
    HANDLE_ERROR( cudaMemcpy(p_d, planes,sizeof(Plane)*NUM_PLANES, cudaMemcpyHostToDevice) );
 
 
+
    HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
    theta = 0;
 }
@@ -81,34 +82,42 @@ extern "C" void ijklMove(unsigned char key)
 //   View = glm::rotate(View, angle * 0.5f, glm::vec3(0.f, 0.f, 1.f)); 
   //mvp = view * mvp;*/
   float sin_theta_x, cos_theta_x, sin_theta_y,cos_theta_y;
-
+  //float cosxy, zval;
   switch(key){
     case('i'):
-      camera->theta_x+=.01;
+      camera->theta_x+=.05;
       break; 
     case('k'):
-      camera->theta_x-=.01;
+      camera->theta_x-=.05;
       break;
     case('j'):
-      camera->theta_y-=.01;
+      camera->theta_y-=.05;
       break;
     case('l'):
-      camera->theta_y+=.01;
+      camera->theta_y+=.05;
       break;
    }
    sin_theta_x = sin(camera->theta_x);
    sin_theta_y = sin(camera->theta_y);
    cos_theta_x = cos(camera->theta_x);
    cos_theta_y = cos(camera->theta_y);
-   printf("Sinx = %f, Siny = %f,Cosx = %f,Cosy = %f\n", sin_theta_x, sin_theta_y, cos_theta_x, cos_theta_y);
-   camera->lookAt = camera->eye + glm::normalize(CreatePoint(sin_theta_y ,sin_theta_x , -1*cos_theta_y*cos_theta_x));
-   camera->lookRight = camera->eye + glm::normalize(CreatePoint(cos_theta_y , 0 , -1* sin_theta_y));
-   camera->lookUp = camera->eye + glm::normalize(CreatePoint(0,cos_theta_x, sin_theta_x));
+   //printf("Sinx = %f, Siny = %f,Cosx = %f,Cosy = %f\n", sin_theta_x, sin_theta_y, cos_theta_x, cos_theta_y);
+   
+   //cosxy = cos_theta_x * cos_theta_y;
+   //zval = -1* cosxy / abs(cosxy) * sqrt(abs(cosxy));
+   
+   camera->lookAt = glm::normalize(CreatePoint(sin_theta_y ,sin_theta_x , -1*cos_theta_x*cos_theta_y));
+   camera->lookRight = glm::normalize(CreatePoint(cos_theta_y , 0 , sin_theta_y));
+   camera->lookUp = glm::normalize(CreatePoint(0,cos_theta_x, sin_theta_x));
    
    //camera->lookAt = camera->eye + glm::normalize(CreatePoint(1 - cos_theta_y, sin_theta_x, sin_theta_y - cos_theta_x));
    //camera->lookUp = camera->eye +  glm::normalize(CreatePoint(0,cos_theta_x, sin_theta_x));
    //camera->lookRight = camera->eye + glm::normalize(CreatePoint(cos_theta_y , 0 , -1* sin_theta_y));
-   printf("%f,%f, %f,\n", camera->lookAt.x, camera->lookAt.y, camera->lookAt.z);
+
+   /*printf("Eye->%f,%f, %f,\n", camera->eye.x, camera->eye.y, camera->eye.z);
+   printf("LookAt->%f,%f, %f,\n", camera->lookAt.x, camera->lookAt.y, camera->lookAt.z);
+   printf("LookUp->%f,%f, %f,\n", camera->lookUp.x, camera->lookUp.y, camera->lookUp.z);
+   printf("LookRight->%f,%f, %f,\n\n", camera->lookRight.x, camera->lookRight.y, camera->lookRight.z);*/
 }
 
 
@@ -119,22 +128,42 @@ extern "C" void wasdMove(unsigned char key)
    Point move;
    switch(key){
     case('w'):
-      move = .05f * glm::normalize(camera->lookAt - camera->eye);
+      move = .2f * camera->lookAt;
       break; 
     case('s'):
-      move = .05f * glm::normalize(camera->eye - camera->lookAt);
+      move = -.2f *camera->lookAt;
       break;
     case('a'):
-      move = .05f * glm::normalize(camera->eye - camera->lookRight);
+      move = -.2f * camera->lookRight;
       break;
     case('d'):
-      move = .05f * glm::normalize(camera->lookRight - camera->eye);
+      move = .2f * camera->lookRight;
       break;
    }
-   camera->lookAt += move;
-   camera->lookUp += move;
-   camera->lookRight += move;
    camera->eye += move;
+   //printf("Camera->Eye: %f, %f, %f\n", camera->eye.x, camera->eye.y, camera->eye.z);
+}
+extern "C" void misc(unsigned char key)
+{
+  switch(key){
+    case('q'):
+      camera = CameraInit();
+      break;
+    case('r'):
+      spheres = CreateSpheres();
+      HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
+      break;
+    case('-'):
+      for(int i = 0; i < NUM_SPHERES; i++)
+        spheres[i].radius = glm::max(0.f, spheres[i].radius-1);
+      HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
+      break;
+    case('='):
+      for(int i = 0; i < NUM_SPHERES; i++)
+        spheres[i].radius = glm::min(100.f, spheres[i].radius+1);
+      HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
+      break;
+   }
 }
 extern "C" void launch_kernel(uchar4* pos, unsigned int image_width, 
                   unsigned int image_height, float time)
@@ -257,10 +286,10 @@ Sphere* CreateSpheres() {
             randr = (rand()%1000) /1000.f ;
             randg = (rand()%1000) /1000.f ;
             randb = (rand()%1000) /1000.f ;
-            spheres[num].radius = 11. - rand() % 10;
-            spheres[num].center = CreatePoint(-100 + rand() % 200,
-                                              100 - rand() % 200,
-                                              100. - rand() %200);
+            spheres[num].radius = 80. - rand() % 60;
+            spheres[num].center = CreatePoint(1300 - rand() % 2600,
+                                              700 - rand() % 1100,
+                                              -0. - rand() %4800);
             spheres[num].ambient = CreateColor(randr, randg, randb);
             spheres[num].diffuse = CreateColor(randr, randg, randb);
             spheres[num].specular = CreateColor(1., 1., 1.);
@@ -270,7 +299,7 @@ Sphere* CreateSpheres() {
 
    spheres[NUM_SPHERES-1].radius=5;
    spheres[NUM_SPHERES-1].center=light->position;
-   spheres[NUM_SPHERES-1].ambient=CreateColor(1,0,0);
+   spheres[NUM_SPHERES-1].ambient=CreateColor(1,1,1);
    spheres[NUM_SPHERES-1].diffuse=CreateColor(1,1,1);
    spheres[NUM_SPHERES-1].specular=CreateColor(1,1,1);
 
@@ -294,37 +323,26 @@ Plane* CreatePlanes() {
             planes[num].specular = CreateColor(1.,1.,1.);
             num++;
    }*/
-
+            planes[0].normal = CreatePoint(0,1,0) ;
+            planes[0].center = CreatePoint(0,-500,0);
+            planes[0].ambient = planes[0].diffuse = planes[0].specular = CreateColor(1,1,1);
+            
+            planes[1].normal = CreatePoint(0,-1,0) ;
+            planes[1].center = CreatePoint(0,800,0);
+            planes[1].ambient = planes[1].diffuse = planes[1].specular = CreateColor(1,1,1);
            
-            planes[0].normal = CreatePoint(0,0,0) ;
-            planes[0].center = CreatePoint(0,0,-1000);
-            planes[0].ambient = CreateColor(1,0,0);
-            planes[0].diffuse =  CreateColor(1,0,0);
-            planes[0].specular = CreateColor(1,0,0);
+            planes[2].normal = CreatePoint(0,0, 1) ;
+            planes[2].center = CreatePoint(0,0,-5000);
+            planes[2].ambient = planes[2].diffuse = planes[2].specular = CreateColor(1,1,1);
+            
+            planes[3].normal = CreatePoint(1,0,0) ;
+            planes[3].center = CreatePoint(-1400,0,0);
+            planes[3].ambient = planes[3].diffuse = planes[3].specular = CreateColor(1,1,1);
 
-            planes[3].normal = CreatePoint(100,-100,0) ;
-            planes[3].center = CreatePoint(500,-500,-500);
-            planes[3].ambient = CreateColor(0,1,0);
-            planes[3].diffuse =  CreateColor(0,1,0);
-            planes[3].specular = CreateColor(0.,1.,0);
-
-            planes[2].normal = CreatePoint(-100,100,0) ;
-            planes[2].center = CreatePoint(-500,500,-500);
-            planes[2].ambient = CreateColor(0,0,1);
-            planes[2].diffuse =  CreateColor(0,0,1);
-            planes[2].specular = CreateColor(0,0,1);
-
-            planes[1].normal = CreatePoint(100,100,0) ;
-            planes[1].center = CreatePoint(500,500,-500);
-            planes[1].ambient = CreateColor(1,1,0);
-            planes[1].diffuse =  CreateColor(1,1,0);
-            planes[1].specular = CreateColor(1,1,0);
-
-            planes[4].normal = CreatePoint(-100,-100,0) ;
-            planes[4].center = CreatePoint(-500,-500, -500);
-            planes[4].ambient = CreateColor(1,0,1);
-            planes[4].diffuse =  CreateColor(1,0,1);
-            planes[4].specular = CreateColor(1.,0,1.);
+            planes[4].normal = CreatePoint(-1,0,0) ;
+            planes[4].center = CreatePoint(1400,0, 0);
+            planes[4].ambient = planes[4].diffuse = planes[4].specular = CreateColor(1,1,1);
+   
    return planes;
 }
 __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, uchar4 * pos)
@@ -341,11 +359,15 @@ __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, 
     if(row >= WINDOW_HEIGHT || col >= WINDOW_WIDTH)
       return;
 
+    float rvaly = tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
+    float rvalx = -1 * WINDOW_WIDTH / WINDOW_HEIGHT * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
     //INIT RAY VALUES
 	  r.origin = cam->eye;
     r.direction = cam->lookAt;
-    r.direction.y += tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
-    r.direction.x += -1 * WINDOW_WIDTH / WINDOW_HEIGHT * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
+    r.direction += (rvalx * cam->lookRight);
+    r.direction += (rvaly * cam->lookUp);
+    //r.direction.y += tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
+    //r.direction.x += -1 * WINDOW_WIDTH / WINDOW_HEIGHT * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
 
 
     //RAY TRACE
@@ -368,18 +390,19 @@ __device__ color_t RayTrace(Ray r, Sphere* s, Plane* f, PointLight* l) {
     color_t color = CreateColor(0, 0, 0); 
     float t, smallest;
    	int i = 0, closestSphere = -1, closestPlane = -1,  inShadow = false;
+    //r.direction += r.origin; //Set back to normal
     Point normalVector;
     //FIND CLOSEST SPHERE ALONG RAY R
     while (i < NUM_SPHERES) {
       t = SphereRayIntersection(s + i, r);
-
+      
       if (t > 0 && (closestSphere < 0 || t < smallest)) {
         smallest = t;
 			  closestSphere = i;
 		  }
       i++;
     }
-    
+    //r.direction -= r.origin;
 i=0;
     while (i < NUM_PLANES) {
       t = PlaneRayIntersection(f + i, r);
@@ -394,6 +417,8 @@ i=0;
     //SETUP FOR SHADOW CALCULATIONS
     i = 0;
     Ray shadowRay;
+    
+    r.direction += r.origin;//Smallest needs to be calculated differently
     shadowRay.origin = CreatePoint(r.direction.x * smallest, r.direction.y * smallest, r.direction.z * smallest);
 
     shadowRay.direction = l->position - shadowRay.origin;
@@ -418,6 +443,8 @@ i=0;
         i++;
       }
     }
+
+
    //inShadow = false; 
     if(closestPlane > -1 && !inShadow)
     {
@@ -455,12 +482,12 @@ i=0;
 __device__ float PlaneRayIntersection(Plane *p, Ray r)
 {
   float t;
-  Point N = p->normal - p->center;
+  Point N = p->normal- p->center;
   float denominator = glm::dot(r.direction,N);
   if(denominator!=0)
   {
     t = (glm::dot(p->center-r.origin,N)) / denominator;
-    if (t>100000)
+    if (t>1000000)
       return -1;
     return t;
 //    return glm::min(t,100000.f);
@@ -548,43 +575,4 @@ PointLight* l, color_t diffuse, color_t ambient, color_t specular) {
 	total.b = glm::min(1.f, a.b + d.b + s.b);
   total.f = 1.f;
 	return total;
-}
-/*
- * Calculates Ambient, Diffuse, and Specular Shading for a single Ray
- */
-__device__ color_t SphereShading(int sNdx, Ray r, Point p, Sphere* sphereList, PointLight* l) {
-	  color_t a, d, s, total;
-	  float NdotL, RdotV;
-	  Point viewVector, lightVector, reflectVector, normalVector;
-
-	  viewVector = glm::normalize((r.origin)-p);
-	
-	  lightVector = glm::normalize((l->position) -p);
-	  normalVector = glm::normalize(p-(sphereList[sNdx].center));
-	
-    NdotL = glm::dot(lightVector, normalVector);
-    reflectVector = (2.f *normalVector*NdotL)-lightVector;
-
-    // Ambient
-    a.r = l->ambient.r * sphereList[sNdx].ambient.r;
-	  a.g = l->ambient.g * sphereList[sNdx].ambient.g;
-	  a.b = l->ambient.b * sphereList[sNdx].ambient.b;
-  
-    // Diffuse
-    d.r = NdotL * l->diffuse.r * sphereList[sNdx].diffuse.r * (NdotL > 0);
-    d.g = NdotL * l->diffuse.g * sphereList[sNdx].diffuse.g * (NdotL > 0);
-    d.b = NdotL * l->diffuse.b * sphereList[sNdx].diffuse.b * (NdotL > 0);
-      
-    // Specular
-    RdotV = glm::pow(glm::dot(glm::normalize(reflectVector), viewVector), 100.f);
-    s.r = RdotV * l->specular.r * sphereList[sNdx].specular.r * (NdotL > 0);
-    s.g = RdotV * l->specular.g * sphereList[sNdx].specular.g * (NdotL > 0);
-    s.b = RdotV * l->specular.b * sphereList[sNdx].specular.b * (NdotL > 0);
-  
-    total.r = glm::min(1.f, a.r + d.r+ s.r);
-	  total.g = glm::min(1.f, a.g + d.g+ s.g);
-	  total.b = glm::min(1.f, a.b + d.b+ s.b);
-    total.f = 1.f;
-	  
-    return total;
 }

@@ -24,6 +24,7 @@ extern void moveRight();
 
 extern "C" void wasdMove(unsigned char key);
 extern "C" void ijklMove(unsigned char key);
+extern "C" void misc(unsigned char key);
 // The user must create the following routines:
 void runCuda();
 
@@ -86,6 +87,12 @@ void keyboard(unsigned char key, int x, int y)
    case('j'):
    case('l'):
      ijklMove(key);
+     break;
+   case('q'):
+   case('r'):
+   case('-'):
+   case('='):
+     misc(key);
      break;
    }
    // indicate the display must be redrawn
