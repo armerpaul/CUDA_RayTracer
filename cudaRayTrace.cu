@@ -19,7 +19,7 @@ Camera * camera, *cam_d;
 PointLight *light, *l_d;
 Plane * planes, *p_d;
 Sphere * spheres, *s_d;
-float theta;
+float theta, stheta;
 
 Camera* CameraInit();
 PointLight* LightInit();
@@ -70,6 +70,7 @@ extern "C" void setup_scene()
 
    HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
    theta = 0;
+   stheta = 0;
 }
 
 extern "C" void ijklMove(unsigned char key)
@@ -82,7 +83,6 @@ extern "C" void ijklMove(unsigned char key)
 //   View = glm::rotate(View, angle * 0.5f, glm::vec3(0.f, 0.f, 1.f)); 
   //mvp = view * mvp;*/
   float sin_theta_x, cos_theta_x, sin_theta_y,cos_theta_y;
-  float cosxy, zval;
   switch(key){
     case('i'):
       camera->theta_x+=.05;
@@ -103,10 +103,8 @@ extern "C" void ijklMove(unsigned char key)
    cos_theta_y = cos(camera->theta_y);
    //printf("Sinx = %f, Siny = %f,Cosx = %f,Cosy = %f\n", sin_theta_x, sin_theta_y, cos_theta_x, cos_theta_y);
    
-   cosxy = cos_theta_x * cos_theta_y;
-   zval = -1* cosxy / abs(cosxy) * sqrt(abs(cosxy));
    
-   //camera->lookAt = glm::normalize(CreatePoint(sin_theta_y ,sin_theta_x , zval));
+   //camera->lookAt = glm::normalize(CreatePoint(sin_theta_y ,sin_theta_x ,  .5* sin_theta_x*sin_theta_x + .5*sin_theta_y*sin_theta_y -1  * cos_theta_x * cos_theta_y));
    camera->lookAt = glm::normalize(CreatePoint(sin_theta_y ,sin_theta_x , -1*cos_theta_x*cos_theta_y));
 
    camera->lookRight = glm::normalize(CreatePoint(cos_theta_y , 0 , sin_theta_y));
@@ -165,6 +163,15 @@ extern "C" void misc(unsigned char key)
         spheres[i].radius = glm::min(100.f, spheres[i].radius+1);
       HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
       break;
+    case('o'):
+      Point center = *new Point(0,0,-2400);
+      for(int i = 0; i < NUM_SPHERES; i++)
+      {
+        Point direction = glm::cross(glm::normalize(spheres[i].center-center), *new Point(0,1,0));
+        spheres[i].center += 5.f*direction;
+      }
+      HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
+      break;
    }
 }
 extern "C" void launch_kernel(uchar4* pos, unsigned int image_width, 
@@ -174,7 +181,7 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
   // set up for random num generator
   // srand ( time(NULL) );
    
-   cudaEvent_t start, stop; 
+ //  cudaEvent_t start, stop; 
    Point move;
 
  //  move.y = .001 * sin(theta += .01);
@@ -200,9 +207,9 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
    
    HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
    //CUDA Timing 
-   HANDLE_ERROR( cudaEventCreate(&start) );
-   HANDLE_ERROR( cudaEventCreate(&stop) );
-   HANDLE_ERROR( cudaEventRecord(start, 0));
+//   HANDLE_ERROR( cudaEventCreate(&start) );
+//   HANDLE_ERROR( cudaEventCreate(&stop) );
+//   HANDLE_ERROR( cudaEventRecord(start, 0));
 
    // The Kernel Call
    dim3 gridSize((WINDOW_WIDTH+15)/16, (WINDOW_HEIGHT+15)/16);
@@ -210,10 +217,10 @@ extern "C" void launch_kernel(uchar4* pos, unsigned int image_width,
    CUDARayTrace<<< gridSize, blockSize  >>>(cam_d, p_d, l_d, s_d, pos);
 cudaThreadSynchronize();
    // Coming Back
-   HANDLE_ERROR(cudaEventRecord( stop, 0));
-   HANDLE_ERROR(cudaEventSynchronize( stop ));
-   float elapsedTime;
-   HANDLE_ERROR(cudaEventElapsedTime( &elapsedTime, start, stop));
+//   HANDLE_ERROR(cudaEventRecord( stop, 0));
+//   HANDLE_ERROR(cudaEventSynchronize( stop ));
+//   float elapsedTime;
+//   HANDLE_ERROR(cudaEventElapsedTime( &elapsedTime, start, stop));
 
    //printf("GPU computation time: %.1f ms\n", elapsedTime);
 
@@ -289,7 +296,7 @@ Sphere* CreateSpheres() {
             randg = (rand()%1000) /1000.f ;
             randb = (rand()%1000) /1000.f ;
             spheres[num].radius = 80. - rand() % 60;
-            spheres[num].center = CreatePoint(1300 - rand() % 2600,
+            spheres[num].center = CreatePoint(2400. - rand() % 4800,
                                               700 - rand() % 1100,
                                               -0. - rand() %4800);
             spheres[num].ambient = CreateColor(randr, randg, randb);
@@ -306,7 +313,6 @@ Sphere* CreateSpheres() {
    spheres[NUM_SPHERES-1].specular=CreateColor(1,1,1);
 
    return spheres;
-
 }
 /*
  * CUDA global function which performs ray tracing. Responsible for initializing and writing to output vector
@@ -325,10 +331,11 @@ Plane* CreatePlanes() {
             planes[num].specular = CreateColor(1.,1.,1.);
             num++;
    }*/
-            planes[0].normal = CreatePoint(0,1,0) ;
+          
+            planes[0].normal = CreatePoint(0,1,0);
             planes[0].center = CreatePoint(0,-500,0);
             planes[0].ambient = planes[0].diffuse = planes[0].specular = CreateColor(1,1,1);
-            
+           
             planes[1].normal = CreatePoint(0,-1,0) ;
             planes[1].center = CreatePoint(0,800,0);
             planes[1].ambient = planes[1].diffuse = planes[1].specular = CreateColor(1,1,1);
@@ -338,16 +345,17 @@ Plane* CreatePlanes() {
             planes[2].ambient = planes[2].diffuse = planes[2].specular = CreateColor(1,1,1);
             
             planes[3].normal = CreatePoint(1,0,0) ;
-            planes[3].center = CreatePoint(-1400,0,0);
+            planes[3].center = CreatePoint(-2400,0,0);
             planes[3].ambient = planes[3].diffuse = planes[3].specular = CreateColor(1,1,1);
 
             planes[4].normal = CreatePoint(-1,0,0) ;
-            planes[4].center = CreatePoint(1400,0, 0);
+            planes[4].center = CreatePoint(2400,0, 0);
             planes[4].ambient = planes[4].diffuse = planes[4].specular = CreateColor(1,1,1);
   
             planes[5].normal = CreatePoint(0,0,-1) ;
             planes[5].center = CreatePoint(0,0, 1000);
             planes[5].ambient = planes[5].diffuse = planes[5].specular = CreateColor(1,1,1);
+            
    return planes;
 }
 __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, uchar4 * pos)
@@ -375,7 +383,6 @@ __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, 
     //r.direction.y += tanVal - (2 * tanVal / WINDOW_HEIGHT) * row;
     //r.direction.x += -1 * WINDOW_WIDTH / WINDOW_HEIGHT * tanVal + (2 * tanVal / WINDOW_HEIGHT) * col;
 
-
     //RAY TRACE
     returnColor = RayTrace(r, s, f, l);
     
@@ -383,7 +390,7 @@ __global__ void CUDARayTrace(Camera * cam,Plane * f,PointLight * l, Sphere * s, 
     int index = row *WINDOW_WIDTH + col;
     
     //PLACE DATA IN INDEX
-    pos[index].x = 0xFF * returnColor.r ;
+    pos[index].x = 0xFF * returnColor.r;
     pos[index].y = 0xFF * returnColor.g;
     pos[index].z = 0xFF * returnColor.b;
     pos[index].w = 0xFF * returnColor.f;
@@ -455,8 +462,8 @@ i=0;
     if(closestPlane > -1 && !inShadow)
     {
       //plane closer than sphere
-	    normalVector = glm::normalize(f[closestPlane].normal-f[closestPlane].center);
-      return Shading(r, shadowRay.origin, normalVector, l, f[closestPlane].diffuse,
+	    //normalVector = glm::normalize(f[closestPlane].normal-f[closestPlane].center);
+      return Shading(r, shadowRay.origin, f[closestPlane].normal, l, f[closestPlane].diffuse,
       f[closestPlane].ambient,f[closestPlane].specular);
     }
     if(closestPlane > -1)
@@ -488,15 +495,14 @@ i=0;
 __device__ float PlaneRayIntersection(Plane *p, Ray r)
 {
   float t;
-  Point N = glm::normalize(p->normal);
-  float denominator = glm::dot(r.direction,N);
+  //Point N = glm::normalize(p->normal);
+  float denominator = glm::dot(r.direction,p->normal);
   if(denominator!=0)
   {
-    t = (glm::dot(p->center-r.origin,N)) / denominator;
+    t = (glm::dot(p->center-r.origin,p->normal)) / denominator;
     if (t>1000000)
       return -1;
     return t;
-//    return glm::min(t,100000.f);
   }
   else
   {
@@ -514,10 +520,10 @@ __device__ float SphereRayIntersection(Sphere* s, Ray r) {
     
     a = glm::dot((r.direction), (r.direction));
 
-    b = 2.0f * glm::dot((r.origin)-(s->center),(r.direction));
+    b = glm::dot((r.origin)-(s->center),(r.direction));
     c = glm::dot((s->center),(s->center)) +glm::dot(r.origin,r.origin) -2.0f*glm::dot(r.origin, s->center)
             - (s->radius * s->radius);
-    d = (b * b) - 4.0f * (a * c);
+    d = (b * b) - (a * c);
     
     if (d >= 0) {
 
@@ -525,10 +531,10 @@ __device__ float SphereRayIntersection(Sphere* s, Ray r) {
 		t2 = (-1 * b + sqrt(d)) / (a);
     
     if (t2 > t1 && t1 > 0) {
-			return t1/2;
+			return t1;
 		
     } else if (t2 > 0) {
-			return t2/2;
+			return t2;
 		
     }
 	}

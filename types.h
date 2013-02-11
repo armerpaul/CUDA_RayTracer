@@ -23,7 +23,7 @@ typedef struct {
 } Sphere;
 
 typedef struct {
-   Point center, normal;
+   Point center, normal, topleft, bottomright;
    color_t ambient, diffuse, specular;
 } Plane;
 
