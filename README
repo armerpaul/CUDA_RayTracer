@@ -2,7 +2,7 @@
 
 458 & 570 Combo Lab
 CUDA Ray Tracer
-Prof. Christofer Lupo & Prof. Zoë Wood
+Prof. Christopher Lupo & Prof. Zoë Wood
 
 Paul Armer (parmer)
 Bryan Ching (bcching)
@@ -10,32 +10,38 @@ Matthew Crussell (macrusse)
 
 ======================================
 
+Implementation
+-------------------------------------
+Our CUDA Ray Tracer builds off our previous parallelized ray tracer and makes it
+real time. To do this only a little of optimization needed to be done to prevent
+divergence. Otherwise, we used glut to run our cuda kernel, generate the
+image, and display it on the screen. 
 
-General Process of Parallelization
-----------------------------------
-The main way that we parallelized the ray tracer is to make a thread for each ray. We
-also removed some conditional statements to avoid divergence.
-
-
-GPU Times
+FPS 100 spheres 6 planes + shadows + lighting
 ---------
- 420.9 ms
- 422.4 ms
- 421.2 ms
- 
- 
-CPU Times
----------
- 12.854 s
- 12.739 s
- 12.572 s
- 
- 
+65 fps
+
+
+Options for coolness
+--------------------------------------
+wasd  - movement
+ijkl  - turning (broken)
+q     - reset camera
+r     - redraw spheres
+o     - spiral inwards
+p     - spiral outwards
+[     - orbit camera CW
+]     - orbit camera CCW
++     - increase sphere size
+=     - decrease sphere size
+9     - darkens planes
+0     - brightens planes
+
+
 Instructions for Compiling and Running
 --------------------------------------
 unzip glm
 make to compile code 
-./gpu to run
-raytraced.tga will be created (view however you wish)
+./RTRT to run
 
 To make changes in sphere numbers, edit cudaRayTrace.h
