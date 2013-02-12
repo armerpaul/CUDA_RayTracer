@@ -121,6 +121,7 @@ extern "C" void wasdMove(unsigned char key)
 }
 extern "C" void misc(unsigned char key)
 {
+  Point center;
   switch(key){
     case('q'):
       camera = CameraInit();
@@ -140,11 +141,51 @@ extern "C" void misc(unsigned char key)
       HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
       break;
     case('o'):
-      Point center = *new Point(0,0,-2400);
+      center = *new Point(0,0,-2400);
       for(int i = 0; i < NUM_SPHERES; i++)
       {
-        Point direction = glm::cross(glm::normalize(spheres[i].center-center), *new Point(0,1,0));
-        spheres[i].center += 5.f*direction;
+        Point c_dir = glm::normalize(spheres[i].center - center);
+        Point move_dir = glm::cross(c_dir, *new Point(0,1,0));
+        spheres[i].center += 5.f*move_dir;
+        spheres[i].center -= 5.f*c_dir;
+
+      }
+      HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
+      break;
+    case('p'):
+      center = *new Point(0,0,-2400);
+      for(int i = 0; i < NUM_SPHERES; i++)
+      {
+        Point c_dir = glm::normalize(spheres[i].center - center);
+        Point move_dir = glm::cross(c_dir, *new Point(0,1,0));
+        spheres[i].center -= 10.f*move_dir;
+        spheres[i].center += 10.f*c_dir;
+
+      }
+      HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
+      break;
+
+    case('['):
+      center = camera->eye;
+      for(int i = 0; i < NUM_SPHERES; i++)
+      {
+        Point c_dir = glm::normalize(spheres[i].center - center);
+        Point move_dir = glm::cross(c_dir, *new Point(0,1,0));
+        spheres[i].center += 10.f*move_dir;
+        //spheres[i].center -= 10.f*c_dir;
+
+      }
+      HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
+      break;
+    case(']'):
+      center = camera->eye;
+      for(int i = 0; i < NUM_SPHERES; i++)
+      {
+        Point c_dir = glm::normalize(spheres[i].center - center);
+        Point move_dir = glm::cross(c_dir, *new Point(0,1,0));
+        spheres[i].center -= 10.f*move_dir;
+        //spheres[i].center += 10.f*c_dir;
+
       }
       HANDLE_ERROR( cudaMemcpy(s_d, spheres,sizeof(Sphere)*NUM_SPHERES, cudaMemcpyHostToDevice) );
       break;
