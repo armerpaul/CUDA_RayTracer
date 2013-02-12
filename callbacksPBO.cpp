@@ -93,6 +93,8 @@ void keyboard(unsigned char key, int x, int y)
    case('-'):
    case('='):
    case('o'):
+   case('9'):
+   case('0'):
    case('p'):
    case('['):
    case(']'):

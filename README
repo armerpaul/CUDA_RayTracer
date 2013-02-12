@@ -17,6 +17,7 @@ real time. To do this only a little of optimization needed to be done to prevent
 divergence. Otherwise, we used glut to run our cuda kernel, generate the
 image, and display it on the screen. 
 
+
 FPS 100 spheres 6 planes + shadows + lighting
 ---------
 65 fps
@@ -25,7 +26,7 @@ FPS 100 spheres 6 planes + shadows + lighting
 Options for coolness
 --------------------------------------
 wasd  - movement
-ijkl  - turning (broken)
+ijkl  - turning (jl working ik broken)
 q     - reset camera
 r     - redraw spheres
 o     - spiral inwards
